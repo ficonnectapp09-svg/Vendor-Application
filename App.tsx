@@ -90,6 +90,7 @@ import NewActivityModal from './android/src/components/NewActivityModal';
 import { socketService } from './android/src/services/socketService';
 import { soundNotificationService, NotificationTapEvent } from './android/src/services/soundNotificationService';
 import { registerDeviceToken, unregisterDeviceToken } from './android/src/services/apiService';
+import { API_URL } from './android/src/services/env';
 
 let messagingModule: any = null;
 try {
@@ -644,7 +645,7 @@ function App() {
         soundNotificationService.syncVendorSession(
           user.vendorId || user._id || user.id || '',
           token,
-          'https://vendor.ficapp.in/api',
+          API_URL,
           JSON.stringify(user.businesses || [])
         );
         registerDeviceToken().catch(() => {});
@@ -661,7 +662,7 @@ function App() {
           soundNotificationService.syncVendorSession(
             user.vendorId || user._id || user.id || '',
             token,
-            'https://vendor.ficapp.in/api',
+            API_URL,
             JSON.stringify(user.businesses || [])
           );
         }

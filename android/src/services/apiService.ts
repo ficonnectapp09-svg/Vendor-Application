@@ -1,5 +1,6 @@
 import { Platform } from 'react-native';
-import { API_URL_ANDROID, API_URL_IOS } from './env';
+import { API_URL_ANDROID, API_URL_IOS, CLOUDINARY_URL, CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, CLOUDINARY_UPLOAD_PRESET, CLOUDINARY_BASE_URL } from './env';
+export { CLOUDINARY_URL, CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, CLOUDINARY_UPLOAD_PRESET, CLOUDINARY_BASE_URL } from './env';
 import { BusinessItem, CategoryKey } from '../../../App';
 import { sessionManager } from './sessionManager';
 
@@ -1273,7 +1274,7 @@ export const registerDeviceToken = async (fcmToken?: string): Promise<boolean> =
     const socketBase = getWorkingSocketUrl();
     const token = getGlobalToken();
     const targetUrls = [
-      'https://api.ficapp.in/api/auth/notifications/register-token',
+      'https://connect-vendor-p1ij.onrender.com/api/auth/notifications/register-token',
       `${socketBase}/api/auth/notifications/register-token`,
     ];
 
