@@ -30,12 +30,11 @@
           android:resource="@mipmap/ic_launcher"
           tools:replace="android:resource" />
 
-      <!-- Vendor Native Background Keep-Alive Service -->
+      <!-- Vendor Native Background Service -->
       <service
           android:name=".VendorKeepAliveService"
           android:enabled="true"
-          android:exported="false"
-          android:foregroundServiceType="dataSync" />
+          android:exported="false" />
 
       <activity
         android:name=".MainActivity"

@@ -637,7 +637,7 @@ function App() {
 
     initNotificationsAndToken();
 
-    // Start background keep-alive service and sync session when authenticated
+    // Sync vendor session and register device token when authenticated
     if (isLoggedIn) {
       const user = getVendorUser();
       const token = getToken();
@@ -650,10 +650,11 @@ function App() {
         );
         registerDeviceToken().catch(() => {});
       }
-      soundNotificationService.startKeepAliveService();
+      // Cleanly ensure no persistent foreground notification is running
+      soundNotificationService.stopKeepAliveService();
     }
 
-    // Ensure background service stays active when app transitions to background or minimized
+    // Keep session synchronized across app state changes
     const appStateSub = AppState.addEventListener('change', (nextState) => {
       if (isLoggedIn && (nextState === 'background' || nextState === 'inactive')) {
         const user = getVendorUser();
@@ -666,7 +667,6 @@ function App() {
             JSON.stringify(user.businesses || [])
           );
         }
-        soundNotificationService.startKeepAliveService();
       }
     });
 

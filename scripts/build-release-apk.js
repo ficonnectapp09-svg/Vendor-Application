@@ -73,6 +73,16 @@ async function buildRelease() {
 
   // Step 2: Compile Offline Release JS Bundle
   console.log('\n--- STEP 2/4: Bundling Offline Release JavaScript ---');
+  // Clear Windows Metro cache to prevent ENOTEMPTY file lock collisions
+  const tempDir = process.env.LOCALAPPDATA ? path.join(process.env.LOCALAPPDATA, 'Temp', 'metro-cache') : null;
+  if (tempDir && fs.existsSync(tempDir)) {
+    try { fs.rmSync(tempDir, { recursive: true, force: true }); } catch (e) {}
+  }
+  const sysTemp = process.env.TEMP ? path.join(process.env.TEMP, 'metro-cache') : null;
+  if (sysTemp && fs.existsSync(sysTemp)) {
+    try { fs.rmSync(sysTemp, { recursive: true, force: true }); } catch (e) {}
+  }
+
   const assetsDir = path.join(ANDROID_DIR, 'app', 'src', 'main', 'assets');
   if (!fs.existsSync(assetsDir)) {
     fs.mkdirSync(assetsDir, { recursive: true });
@@ -101,8 +111,8 @@ async function buildRelease() {
   console.log('\n--- STEP 3/4: Compiling Release APK via Gradle ---');
   const isWindows = process.platform === 'win32';
   const gradlewCmd = isWindows
-    ? `"${path.join(ANDROID_DIR, 'gradlew.bat')}" assembleRelease --rerun-tasks`
-    : './gradlew assembleRelease --rerun-tasks';
+    ? `"${path.join(ANDROID_DIR, 'gradlew.bat')}" assembleRelease`
+    : './gradlew assembleRelease';
   runCommand(gradlewCmd, ANDROID_DIR);
   console.log('✅ Gradle assembleRelease completed successfully.');
 

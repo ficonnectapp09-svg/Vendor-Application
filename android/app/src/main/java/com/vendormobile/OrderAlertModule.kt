@@ -123,6 +123,12 @@ class OrderAlertModule(private val reactContext: ReactApplicationContext) :
                         setShowBadge(true)
                     }
                     notificationManager.createNotificationChannel(fallbackChannel)
+
+                    // Cleanly dismantle any legacy keep-alive channel and persistent notification
+                    try {
+                        notificationManager.cancel(99991)
+                        notificationManager.deleteNotificationChannel("vendor_keepalive_service_channel")
+                    } catch (e: Exception) {}
                 } catch (e: Exception) {
                     e.printStackTrace()
                 }
@@ -440,7 +446,7 @@ class OrderAlertModule(private val reactContext: ReactApplicationContext) :
     @ReactMethod
     fun startKeepAliveService() {
         try {
-            VendorKeepAliveService.start(reactContext)
+            VendorKeepAliveService.stop(reactContext)
         } catch (e: Exception) {
             e.printStackTrace()
         }

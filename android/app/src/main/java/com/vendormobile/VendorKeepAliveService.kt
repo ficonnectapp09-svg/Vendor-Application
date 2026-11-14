@@ -81,28 +81,24 @@ class VendorKeepAliveService : Service() {
         }
 
         fun start(context: Context) {
-            try {
-                val intent = Intent(context, VendorKeepAliveService::class.java).apply {
-                    action = ACTION_START
-                }
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                    context.startForegroundService(intent)
-                } else {
-                    context.startService(intent)
-                }
-            } catch (e: Exception) {
-                e.printStackTrace()
-            }
+            // Deprecated: No persistent foreground service or ongoing notification is started.
+            stop(context)
         }
 
         fun stop(context: Context) {
             try {
+                val notificationManager =
+                    context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+                notificationManager.cancel(NOTIFICATION_ID)
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    notificationManager.deleteNotificationChannel(CHANNEL_ID)
+                }
                 val intent = Intent(context, VendorKeepAliveService::class.java).apply {
                     action = ACTION_STOP
                 }
                 context.startService(intent)
             } catch (e: Exception) {
-                e.printStackTrace()
+                // Non-blocking
             }
         }
 
@@ -132,49 +128,14 @@ class VendorKeepAliveService : Service() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        if (intent?.action == ACTION_STOP) {
-            isExplicitlyStopped = true
-            stopForegroundService()
-            return START_NOT_STICKY
-        }
-
-        isExplicitlyStopped = false
-        startForegroundServiceInternal()
-        return START_STICKY
+        isExplicitlyStopped = true
+        stopForegroundService()
+        return START_NOT_STICKY
     }
 
     override fun onTaskRemoved(rootIntent: Intent?) {
-        try {
-            if (!isExplicitlyStopped) {
-                val restartIntent = Intent(applicationContext, this.javaClass).apply {
-                    setPackage(packageName)
-                    action = ACTION_START
-                }
-                val pendingIntent = PendingIntent.getService(
-                    applicationContext,
-                    1,
-                    restartIntent,
-                    PendingIntent.FLAG_ONE_SHOT or PendingIntent.FLAG_IMMUTABLE
-                )
-                val alarmManager = getSystemService(Context.ALARM_SERVICE) as AlarmManager
-                val triggerAt = System.currentTimeMillis() + 1500L
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                    alarmManager.setExactAndAllowWhileIdle(
-                        AlarmManager.RTC_WAKEUP,
-                        triggerAt,
-                        pendingIntent
-                    )
-                } else {
-                    alarmManager.set(
-                        AlarmManager.RTC_WAKEUP,
-                        triggerAt,
-                        pendingIntent
-                    )
-                }
-            }
-        } catch (e: Exception) {
-            e.printStackTrace()
-        }
+        isExplicitlyStopped = true
+        stopForegroundService()
         super.onTaskRemoved(rootIntent)
     }
 
@@ -490,32 +451,18 @@ class VendorKeepAliveService : Service() {
         } catch (e: Exception) {}
 
         try {
+            val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+            notificationManager.cancel(NOTIFICATION_ID)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                notificationManager.deleteNotificationChannel(CHANNEL_ID)
+            }
             stopForeground(true)
             stopSelf()
         } catch (e: Exception) {}
     }
 
     override fun onDestroy() {
-        if (!isExplicitlyStopped) {
-            try {
-                val restartIntent = Intent(applicationContext, this.javaClass).apply {
-                    setPackage(packageName)
-                    action = ACTION_START
-                }
-                val pendingIntent = PendingIntent.getService(
-                    applicationContext,
-                    2,
-                    restartIntent,
-                    PendingIntent.FLAG_ONE_SHOT or PendingIntent.FLAG_IMMUTABLE
-                )
-                val alarmManager = getSystemService(Context.ALARM_SERVICE) as AlarmManager
-                alarmManager.set(
-                    AlarmManager.RTC_WAKEUP,
-                    System.currentTimeMillis() + 2000L,
-                    pendingIntent
-                )
-            } catch (e: Exception) {}
-        }
+        isExplicitlyStopped = true
         stopForegroundService()
         super.onDestroy()
     }

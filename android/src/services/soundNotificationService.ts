@@ -354,16 +354,11 @@ class SoundNotificationService {
   }
 
   /**
-   * Start native background keep-alive service to receive orders while minimized
+   * Keep-alive foreground service deprecated to eliminate persistent 'Vendor Online & Active' notification
    */
   startKeepAliveService() {
-    try {
-      if (OrderAlertModule && typeof OrderAlertModule.startKeepAliveService === 'function') {
-        OrderAlertModule.startKeepAliveService();
-      }
-    } catch (e: any) {
-      console.warn('[SoundNotificationService] startKeepAliveService notice:', e?.message);
-    }
+    // Deprecated: No persistent foreground service is started.
+    this.stopKeepAliveService();
   }
 
   /**
