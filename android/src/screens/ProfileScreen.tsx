@@ -1,5 +1,5 @@
 import React, {useState, useEffect} from 'react';
-import { getVendorUser, updateProfile, fetchProfile, updateAcceptingOrders, isValidIndianPincode, isValidIndianMobile, sanitizeIndianPincode, sanitizeIndianMobile } from '../services/apiService';
+import { getVendorUser, updateProfile, fetchProfile, updateAcceptingOrders, isValidIndianPincode, isValidIndianMobile, sanitizeIndianPincode, sanitizeIndianMobile, formatImageUrl } from '../services/apiService';
 import sessionManager from '../services/sessionManager';
 import {
   View,
@@ -318,7 +318,7 @@ export default function ProfileScreen({
         <View style={tw`flex-row items-center mb-4`}>
           {currentUser?.logo ? (
             <Image
-              source={{ uri: currentUser.logo }}
+              source={{ uri: formatImageUrl(currentUser.logo) }}
               style={tw`w-16 h-16 rounded-full mr-4 bg-gray-200`}
             />
           ) : (

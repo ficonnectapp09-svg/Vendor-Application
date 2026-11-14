@@ -1,5 +1,5 @@
 import { BusinessItem } from '../../../App';
-import { MONGODB_URI } from './env';
+// Note: Direct MongoDB connections from mobile client are deprecated; all operations are mediated via authenticated backend.
 
 let objectIdCounter = 0;
 // Utility to generate MongoDB 24-character hex ObjectIDs
@@ -46,7 +46,7 @@ const initialMongoProducts: BusinessItem[] = [];
 const initialMongoCustomers: MongoCustomer[] = [];
 
 class MongoDatabase {
-  private mongoUri: string = MONGODB_URI;
+  private mongoUri: string = 'mongodb://backend-mediated';
   private orders: MongoOrder[] = [];
   private products: BusinessItem[] = [];
   private customers: MongoCustomer[] = [];

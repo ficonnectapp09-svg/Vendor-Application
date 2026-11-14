@@ -1,6 +1,6 @@
 import { Platform } from 'react-native';
-import { API_URL_ANDROID, API_URL_IOS, CLOUDINARY_URL, CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, CLOUDINARY_UPLOAD_PRESET, CLOUDINARY_BASE_URL } from './env';
-export { CLOUDINARY_URL, CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, CLOUDINARY_UPLOAD_PRESET, CLOUDINARY_BASE_URL } from './env';
+import { API_URL_ANDROID, API_URL_IOS, CLOUDINARY_CLOUD_NAME, CLOUDINARY_UPLOAD_PRESET, CLOUDINARY_BASE_URL } from './env';
+export { CLOUDINARY_CLOUD_NAME, CLOUDINARY_UPLOAD_PRESET, CLOUDINARY_BASE_URL } from './env';
 import { BusinessItem, CategoryKey } from '../../../App';
 import { sessionManager } from './sessionManager';
 
@@ -465,7 +465,6 @@ export const formatImageUrl = (url: string | undefined | null): string => {
       clean.includes('trycloudflare.com') ||
       clean.includes(':8000') ||
       clean.includes(':8001') ||
-      clean.includes('43.204.141.105') ||
       clean.includes('localhost') ||
       clean.includes('10.0.2.2')
     ) {
@@ -841,7 +840,7 @@ export const logoutVendor = async () => {
 };
 
 export const registerVendor = async (payload: any) => {
-  // Pre-upload local file URIs to AWS S3 if present
+  // Pre-upload local file URIs to Cloudinary via backend if present
   let resolvedLogo = payload.shopLogo || payload.logo || '';
   if (resolvedLogo && (resolvedLogo.startsWith('file://') || resolvedLogo.startsWith('content://'))) {
     try {

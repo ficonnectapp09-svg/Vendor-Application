@@ -9,10 +9,12 @@
 
     <!-- Explicit production domains -->
     <domain-config cleartextTrafficPermitted="false">
+        <domain includeSubdomains="true">onrender.com</domain>
+        <domain includeSubdomains="true">cloudinary.com</domain>
+        <domain includeSubdomains="true">res.cloudinary.com</domain>
         <domain includeSubdomains="true">vendor.ficapp.in</domain>
         <domain includeSubdomains="true">api.ficapp.in</domain>
         <domain includeSubdomains="true">ficapp.in</domain>
-        <domain includeSubdomains="true">amazonaws.com</domain>
         <trust-anchors>
             <certificates src="system" />
         </trust-anchors>
