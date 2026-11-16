@@ -77,19 +77,27 @@ export default function SubscriptionScreen({
         const rawBusinesses = subsRes.businesses || subsRes.subscriptions || [];
         updatedSubs = rawBusinesses;
         setSubscriptionsList(updatedSubs);
-        if (subsRes.summary) {
-          const totalPaid = subsRes.summary.totalAmountPaid !== undefined ? subsRes.summary.totalAmountPaid : (subsRes.summary.totalPaid || 0);
-          const activeCount = subsRes.summary.totalActiveSubscriptions !== undefined ? subsRes.summary.totalActiveSubscriptions : (subsRes.summary.activeCount || 0);
-          const totalSubs = subsRes.summary.totalSubscriptions || 0;
-          const expiredCount = subsRes.summary.expiredCount !== undefined ? subsRes.summary.expiredCount : Math.max(0, totalSubs - activeCount);
-          updatedSummary = {
-            totalPaid,
-            activeCount,
-            expiredCount,
-            nextExpiry: subsRes.summary.nextExpiry || null,
-          };
-          setSummary(updatedSummary);
-        }
+        const activeSubs = updatedSubs.filter(s => {
+          const st = String(s.status || '').toLowerCase();
+          return st === 'active' || s.isSubscriptionActive === true;
+        });
+        const activeCount = subsRes.summary?.totalActiveSubscriptions !== undefined ? subsRes.summary.totalActiveSubscriptions : activeSubs.length;
+        const totalSubs = subsRes.summary?.totalSubscriptions || updatedSubs.length;
+        const expiredCount = subsRes.summary?.expiredCount !== undefined ? subsRes.summary.expiredCount : Math.max(0, totalSubs - activeCount);
+        const computedTotalPaid = activeSubs.length > 0
+          ? activeSubs.reduce((sum, s) => sum + Number(s.amount || s.fee || s.price || 1000), 0)
+          : (activeCount * 1000);
+        const totalPaid = (subsRes.summary?.totalAmountPaid !== undefined && subsRes.summary.totalAmountPaid >= computedTotalPaid)
+          ? subsRes.summary.totalAmountPaid
+          : computedTotalPaid;
+
+        updatedSummary = {
+          totalPaid,
+          activeCount,
+          expiredCount,
+          nextExpiry: subsRes.summary?.nextExpiry || null,
+        };
+        setSummary(updatedSummary);
       } else {
         // Fallback to user businesses from session
         const user = getVendorUser();
@@ -103,6 +111,14 @@ export default function SubscriptionScreen({
           amount: 1000,
         }));
         setSubscriptionsList(updatedSubs);
+        const activeSubs = updatedSubs.filter(s => s.status === 'Active');
+        updatedSummary = {
+          totalPaid: activeSubs.length * 1000,
+          activeCount: activeSubs.length,
+          expiredCount: Math.max(0, updatedSubs.length - activeSubs.length),
+          nextExpiry: null,
+        };
+        setSummary(updatedSummary);
       }
 
       if (histRes && histRes.success) {

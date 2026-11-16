@@ -1200,6 +1200,16 @@ export default function BusinessScreen({
         }
 
         const currentEditingItem = editingItem || items.find(i => i.id === editingItemId);
+        if (!imageToSave && isEditing && currentEditingItem?.image) {
+          imageToSave = currentEditingItem.image;
+        }
+
+        // Issue 16: Product image is required for Products category
+        if (newItemCategory === 'Products' && !imageToSave && !chosenImage && !uploadedImageUrl) {
+          Alert.alert('Product Image Required', 'Please upload or select an image for this product before saving.');
+          setLoading(false);
+          return;
+        }
 
         const itemPayload: Partial<BusinessItem> = {
           name: newItemName.trim(),
@@ -1298,7 +1308,7 @@ export default function BusinessScreen({
           try {
             const updatedItem = await updateProduct(editingItemId, itemPayload);
             const finalImage = isJob ? '' : (chosenImage || updatedItem.image);
-            setItems(prev => prev.map(i => i.id === editingItemId ? { ...itemPayload, ...updatedItem, image: finalImage } : i));
+            setItems(prev => prev.map(i => i.id === editingItemId ? { ...i, ...itemPayload, ...updatedItem, isActive: itemPayload.isActive !== undefined ? itemPayload.isActive : (updatedItem.isActive ?? i.isActive), image: finalImage } : i));
             Alert.alert('Success', isJob ? 'Job updated successfully!' : 'Item updated successfully!');
           } catch (apiErr: any) {
             console.error('Backend updateProduct error:', apiErr);
@@ -2303,28 +2313,36 @@ export default function BusinessScreen({
                     ]}>
                     {/* Product/Service Image (Hidden for Jobs) */}
                     {!(item.category === 'Jobs' || selectedCategory === 'Jobs') && (
-                      <Image
-                        source={{ uri: formatImageUrl(item.image) || categoryImages[item.category as CategoryKey] || categoryImages['Products'] }}
-                        style={[tw`w-20 h-20 rounded-xl mr-3.5 border self-start`, isDark ? tw`bg-zinc-800 border-zinc-700` : tw`bg-gray-100 border-gray-200`]}
-                        resizeMode="cover"
-                      />
+                      <View style={[tw`w-20 h-20 rounded-xl mr-3.5 border items-center justify-center overflow-hidden self-start`, isDark ? tw`bg-zinc-800 border-zinc-700` : tw`bg-gray-50 border-gray-200`]}>
+                        <Image
+                          source={{ uri: formatImageUrl(item.image) || categoryImages[item.category as CategoryKey] || categoryImages['Products'] }}
+                          style={tw`w-full h-full`}
+                          resizeMode="contain"
+                        />
+                      </View>
                     )}
 
                     {/* Card Details */}
                     <View style={tw`flex-1`}>
                       <View style={tw`flex-row items-center mb-1 flex-wrap`}>
-                        {/* Food Veg / Non-Veg Indicator */}
-                        {(item.category === 'Food' || item.foodType) && (
+                        {/* Food Veg / Non-Veg Indicator strictly for Food */}
+                        {((item.category === 'Food' || selectedCategory === 'Food') && Boolean(item.foodType)) && (
                           <View style={[tw`w-3.5 h-3.5 border items-center justify-center rounded-sm mr-1.5`, item.foodType === 'Non-Veg' ? tw`border-red-600` : tw`border-emerald-600`]}>
                             <View style={[tw`w-1.5 h-1.5 rounded-full`, item.foodType === 'Non-Veg' ? tw`bg-red-600` : tw`bg-emerald-600`]} />
                           </View>
                         )}
-                        <View style={[tw`px-2 py-0.5 rounded-md mr-1.5 bg-indigo-50`, isDark && tw`bg-indigo-950`]}>
-                          <Text style={[tw`text-[10px] font-bold text-indigo-600`, isDark && tw`text-indigo-300`]}>
-                            {item.subCategory || 'General'}
-                          </Text>
-                        </View>
-                        {item.itemType ? (
+                        {item.subCategory && !['Standard', 'General', 'Default'].includes(item.subCategory) && item.subCategory !== item.category ? (
+                          <View style={[tw`px-2 py-0.5 rounded-md mr-1.5 bg-indigo-50`, isDark && tw`bg-indigo-950`]}>
+                            <Text style={[tw`text-[10px] font-bold text-indigo-600`, isDark && tw`text-indigo-300`]}>
+                              {item.subCategory}
+                            </Text>
+                          </View>
+                        ) : null}
+                        {item.itemType &&
+                         !['Standard', 'General', 'Default'].includes(item.itemType) &&
+                         item.itemType !== item.subCategory &&
+                         item.itemType !== item.category &&
+                         !(item.category === 'Food' && (item.itemType === 'Veg' || item.itemType === 'Non-Veg' || item.itemType === item.foodType)) ? (
                           <View style={[tw`px-2 py-0.5 rounded-md bg-purple-50 mr-1.5`, isDark && tw`bg-purple-950`]}>
                             <Text style={[tw`text-[10px] font-bold text-purple-600`, isDark && tw`text-purple-300`]}>
                               {item.itemType}

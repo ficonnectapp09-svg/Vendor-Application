@@ -323,6 +323,7 @@ export default function HomeScreen({
 
   const totalOrders = analytics?.ordersCount ?? analytics?.totalOrdersCount ?? (Array.isArray(recentOrdersList) ? recentOrdersList.length : 0);
   const totalRevenue = analytics?.totalRevenue ?? 0;
+  const grossSales = analytics?.grossSales ?? analytics?.totalRevenue ?? 0;
   const totalProducts = analytics?.itemsCount ?? analytics?.totalItemsCount ?? (Array.isArray(items) ? items.length : 0);
   const activeMemberships = analytics?.activeMembershipsCount ?? analytics?.customersCount ?? 0;
 
@@ -726,7 +727,7 @@ export default function HomeScreen({
                   Total Revenue
                 </Text>
                 <Text style={tw`text-white text-3xl font-bold tracking-tight`}>
-                  ₹{(analytics?.totalRevenue ?? 0).toLocaleString()}
+                  ₹{(grossSales ?? 0).toLocaleString()}
                 </Text>
                 <View style={tw`flex-row items-center mt-2`}>
                   <TrendingUp size={14} color="#86EFAC" />

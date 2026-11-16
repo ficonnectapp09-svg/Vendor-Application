@@ -80,9 +80,29 @@ export default function NewActivityModal({
                 ['job', 'jobs', 'application', 'job_application'].includes(rawCat) || 
                 Boolean(raw.candidateResume || raw.applicationId);
 
-  const isBooking = notification.category === 'Booking' || notification.segment === 'Bookings' || 
-                    ['booking', 'appointment', 'service', 'services', 'stay', 'travel'].includes(rawType) || 
-                    ['booking', 'stay', 'travel', 'services', 'service'].includes(rawCat);
+  const hasFoodIndicator = (
+    ['food', 'foods', 'restaurant', 'dining'].includes(rawCat) ||
+    ['food', 'foods', 'restaurant'].includes(rawType) ||
+    /food|restaurant|biryani|chicken|pizza|burger|meal|dish|dosa|idly|curry|roti|paneer/i.test(detailStr) ||
+    (raw.items && Array.isArray(raw.items) && raw.items.some((it: any) => {
+      const c = String(it.category || it.mainCategory || '').toLowerCase();
+      const n = String(it.name || '').toLowerCase();
+      return c.includes('food') || /dosa|idly|biryani|chicken|pizza|burger|meal|dish|curry|roti|paneer|tea|coffee|naan|makhani/i.test(n);
+    }))
+  );
+
+  const isFoodOrder = !isJob && Boolean(hasFoodIndicator);
+
+  const isDailyNeedsOrder = !isJob && !isFoodOrder && (
+    ['daily needs', 'daily need', 'grocery', 'pharmacy', 'snacks'].includes(rawCat) ||
+    ['daily needs', 'daily need', 'grocery'].includes(rawType)
+  );
+
+  const isBooking = !isFoodOrder && !isDailyNeedsOrder && !isJob && (
+    notification.category === 'Booking' || notification.segment === 'Bookings' || 
+    ['booking', 'appointment', 'service', 'services', 'stay', 'travel'].includes(rawType) || 
+    ['booking', 'stay', 'travel', 'services', 'service'].includes(rawCat)
+  );
 
   const serviceKeywordsRegex = /\b(electrician|plumber|technician|solar|repair|repairs|cctv|cleaning|service|services|consultation|doctor|nurse|clinic|hospital|lineman|mechanic|carpenter|painter|handyman)\b/i;
 
@@ -108,32 +128,19 @@ export default function NewActivityModal({
     ['stay', 'hotel', 'resort'].includes(rawType)
   );
 
-  const isFoodOrder = !isJob && !isBooking && (
-    ['food', 'foods', 'restaurant', 'dining'].includes(rawCat) ||
-    ['food', 'foods', 'restaurant'].includes(rawType) ||
-    /food|restaurant|biryani|chicken|pizza|burger|meal|dish/i.test(detailStr)
-  );
-
-  const isDailyNeedsOrder = !isJob && !isBooking && (
-    ['daily needs', 'daily need', 'grocery', 'pharmacy', 'snacks'].includes(rawCat) ||
-    ['daily needs', 'daily need', 'grocery'].includes(rawType)
-  );
-
   let txTypeTitle = 'New Product Order';
   if (isJob) {
     txTypeTitle = 'New Job Application';
-  } else if (isServiceBooking) {
-    txTypeTitle = 'New Service Booking';
-  } else if (isStayBooking) {
-    txTypeTitle = 'New Stay Booking';
-  } else if (isTravelBooking) {
-    txTypeTitle = 'New Travel Booking';
-  } else if (isBooking) {
-    txTypeTitle = 'New Service Booking';
   } else if (isFoodOrder) {
     txTypeTitle = 'New Food Order';
   } else if (isDailyNeedsOrder) {
     txTypeTitle = 'New Daily Needs Order';
+  } else if (isStayBooking) {
+    txTypeTitle = 'New Stay Booking';
+  } else if (isTravelBooking) {
+    txTypeTitle = 'New Travel Booking';
+  } else if (isServiceBooking || isBooking) {
+    txTypeTitle = 'New Service Booking';
   } else {
     txTypeTitle = 'New Product Order';
   }
@@ -412,7 +419,7 @@ export default function NewActivityModal({
                 isDark ? tw`bg-zinc-900 border-zinc-800` : tw`bg-white border-gray-100`,
               ]}>
               <Text style={[tw`text-[10px] font-bold uppercase tracking-wider mb-2`, isDark ? tw`text-zinc-400` : tw`text-gray-400`]}>
-                {isJob ? '2. Application Details' : isBooking ? '2. Booking Details' : '2. Transaction Details'}
+                {isJob ? '2. Application Details' : isBooking ? '2. Booking Details' : '2. Order Details'}
               </Text>
               <View style={tw`flex-row justify-between items-center mb-1`}>
                 <Text style={[tw`text-xs font-semibold`, isDark ? tw`text-zinc-400` : tw`text-gray-500`]}>

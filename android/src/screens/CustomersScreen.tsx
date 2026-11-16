@@ -403,30 +403,29 @@ export default function CustomersScreen({
                     </Text>
                   </View>
 
-                  {customer.address && customer.address !== 'Not provided' ? (
-                    <>
-                      <Text style={[tw`text-[10px]`, isDark ? tw`text-zinc-700` : tw`text-gray-300`]}>•</Text>
-                      <View style={tw`flex-row items-center flex-1`}>
-                        <MapPin size={9} color={isDark ? '#71717A' : '#9CA3AF'} style={tw`mr-1`} />
-                        <Text
-                          style={[tw`text-[10px] font-medium`, isDark ? tw`text-zinc-400` : tw`text-gray-600`]}
-                          numberOfLines={1}>
-                          {customer.address}
-                        </Text>
-                      </View>
-                    </>
-                  ) : null}
                 </View>
+
+                {/* Dedicated Customer Address Row (Issue 7 Fix: No Truncation) */}
+                {customer.address && customer.address !== 'Not provided' && customer.address !== 'N/A' ? (
+                  <View style={[tw`flex-row items-start px-3 py-2 rounded-2xl mb-3.5`, isDark ? tw`bg-zinc-950/40` : tw`bg-gray-50/80`]}>
+                    <MapPin size={13} color={isDark ? '#818CF8' : '#4F46E5'} style={tw`mr-2 mt-0.5`} />
+                    <Text
+                      style={[tw`text-xs font-medium flex-1 leading-relaxed`, isDark ? tw`text-zinc-300` : tw`text-gray-700`]}
+                      numberOfLines={3}>
+                      {customer.address}
+                    </Text>
+                  </View>
+                ) : null}
 
                 {/* Stats & Action Row */}
                 <View style={tw`flex-row items-center justify-between pt-3 border-t border-gray-150 dark:border-zinc-800`}>
                   <View style={tw`flex-row gap-3`}>
                     <View>
                       <Text style={[tw`text-[9px] uppercase font-extrabold tracking-wider`, isDark ? tw`text-zinc-500` : tw`text-gray-400`]}>
-                        Visits / Orders
+                        Total Visits
                       </Text>
                       <Text style={[tw`text-xs font-black mt-0.5`, isDark ? tw`text-white` : tw`text-gray-800`]}>
-                        {customer.ordersCount || customer.visits || 1} times
+                        {customer.totalVisits || customer.ordersCount || customer.visits || 1} times
                       </Text>
                     </View>
 

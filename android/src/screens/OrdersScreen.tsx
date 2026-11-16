@@ -44,6 +44,7 @@ import {
   CreditCard,
   Receipt,
   Calendar,
+  UtensilsCrossed,
 } from 'lucide-react-native';
 
 const isCanonicalCustId = (id: any) => id && (String(id).startsWith('FIC-CUS-') || String(id).startsWith('FIC-CUST-') || String(id).startsWith('REG-')) && String(id) !== 'FIC-CUST-100001';
@@ -60,9 +61,50 @@ const getCustomerDisplayId = (item: any): string => {
   return 'N/A';
 };
 
+const OrderThumbnail = ({ imageUri, category, isDark }: { imageUri?: string; category?: string; isDark: boolean }) => {
+  const [loadFailed, setLoadFailed] = useState(false);
+  const formatted = useMemo(() => imageUri ? formatImageUrl(imageUri) : '', [imageUri]);
+
+  if (!formatted || loadFailed) {
+    const isFood = category === 'Food' || category === 'Foods' || category === 'Restaurant';
+    return (
+      <View style={[tw`w-16 h-16 rounded-xl mr-3 items-center justify-center border`, isDark ? tw`bg-zinc-800 border-zinc-700` : (isFood ? tw`bg-orange-50 border-orange-200` : tw`bg-gray-100 border-gray-200`)]}>
+        {isFood ? (
+          <UtensilsCrossed size={22} color="#EA580C" />
+        ) : (
+          <Package size={22} color="#6B7280" />
+        )}
+      </View>
+    );
+  }
+
+  return (
+    <Image
+      source={{ uri: formatted }}
+      style={[tw`w-16 h-16 rounded-xl mr-3 border`, isDark ? tw`bg-zinc-800 border-zinc-700` : tw`bg-gray-100 border-gray-200`]}
+      resizeMode="cover"
+      onError={() => setLoadFailed(true)}
+    />
+  );
+};
+
 export const sanitizeCustomerAddress = (addrStr?: string): string => {
   if (!addrStr || typeof addrStr !== 'string') return addrStr || '';
   let res = addrStr.trim();
+
+  // Deduplicate repeating comma-separated segments (e.g. repeated city, state, or pincode)
+  const segments = res.split(',').map(s => s.trim()).filter(Boolean);
+  const seenNorm = new Set<string>();
+  const cleanSegments: string[] = [];
+  for (const seg of segments) {
+    const norm = seg.toLowerCase().replace(/[\s-]+/g, ' ');
+    if (!seenNorm.has(norm)) {
+      seenNorm.add(norm);
+      cleanSegments.push(seg);
+    }
+  }
+  res = cleanSegments.join(', ');
+
   // If address contains Tamil Nadu districts or 60xxxx-64xxxx pincodes with 'Karnataka'
   const isTN = /\b(dharmapuri|harur|salem|chennai|coimbatore|madurai|trichy|tiruchirappalli|tiruppur|erode|vellore|kanchipuram|hosur|krishnagiri|thanjavur|dindigul|cuddalore|tirunelveli|tuticorin|thoothukudi)\b/i.test(res) ||
                /\b6[0-4][0-9]{4}\b/.test(res);
@@ -474,6 +516,13 @@ export default function OrdersScreen({
   const [searchQuery, setSearchQuery] = useState('');
   const [filterModalVisible, setFilterModalVisible] = useState(false);
 
+  const vendorUser = getVendorUser();
+  const vendorId = (vendorUser?._id || vendorUser?.id || vendorUser?.vendorId || 'default').toString();
+  const isJobVendor = vendorUser && vendorUser.vendorType && vendorUser.vendorType.startsWith('Job');
+  const regularStatusFilters = ['All', 'Pending', 'Preparing', 'Assigned', 'Delivered', 'Cancelled'];
+  const bookingStatusFilters = ['All', 'Confirmed', 'Pending', 'Completed', 'Cancelled'];
+  const jobStatusFilters = ['All', 'Pending', 'Reviewed', 'Shortlisted', 'Interview Scheduled'];
+
   // Independent state per section initialized synchronously from fast memory cache (< 1ms)
   const [ordersRaw, setOrdersRaw] = useState<any[]>(() => {
     const cached = sessionManager.getVendorCacheSync(vendorId, 'orders_raw');
@@ -494,13 +543,6 @@ export default function OrdersScreen({
   const [actionLoading, setActionLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
 
-  const vendorUser = getVendorUser();
-  const vendorId = (vendorUser?._id || vendorUser?.id || vendorUser?.vendorId || 'default').toString();
-  const isJobVendor = vendorUser && vendorUser.vendorType && vendorUser.vendorType.startsWith('Job');
-  const regularStatusFilters = ['All', 'Pending', 'Preparing', 'Assigned', 'Delivered', 'Cancelled'];
-  const bookingStatusFilters = ['All', 'Confirmed', 'Pending', 'Completed', 'Cancelled'];
-  const jobStatusFilters = ['All', 'Pending', 'Reviewed', 'Shortlisted', 'Interview Scheduled'];
-
   const currentStatusFilters =
     activeSegment === 'Jobs'
       ? jobStatusFilters
@@ -515,11 +557,26 @@ export default function OrdersScreen({
       sessionManager.getVendorCache(vendorId, 'orders_raw'),
       sessionManager.getVendorCache(vendorId, 'bookings_raw'),
       sessionManager.getVendorCache(vendorId, 'jobs_raw'),
-    ]).then(([cOrders, cBookings, cJobs]) => {
+      sessionManager.getVendorCache(vendorId, 'catalog_items'),
+    ]).then(([cOrders, cBookings, cJobs, cCatalog]) => {
       if (!isMounted) return;
       if (Array.isArray(cOrders) && cOrders.length > 0) setOrdersRaw(cOrders);
       if (Array.isArray(cBookings) && cBookings.length > 0) setBookingsRaw(cBookings);
       if (Array.isArray(cJobs) && cJobs.length > 0) setJobsRaw(cJobs);
+      if (Array.isArray(cCatalog) && cCatalog.length > 0) {
+        const map: Record<string, string> = {};
+        cCatalog.forEach((p: any) => {
+          const img = p.image || p.imageUrl || (Array.isArray(p.images) && p.images[0]);
+          if (img) {
+            if (p._id) map[String(p._id)] = img;
+            if (p.id) map[String(p.id)] = img;
+            if (p.productId) map[String(p.productId)] = img;
+            if (p.name) map[String(p.name).trim().toLowerCase()] = img;
+            if (p.productName) map[String(p.productName).trim().toLowerCase()] = img;
+          }
+        });
+        setProductImageMap(prev => ({ ...map, ...prev }));
+      }
     }).catch(() => {});
 
     // Concurrently pre-fetch all segments in parallel so tab switching is instantaneous
@@ -1628,16 +1685,7 @@ export default function OrdersScreen({
 
         {/* Body: Product Image + Product Details + Quantity */}
         <View style={tw`flex-row items-start mb-3`}>
-          {order.image ? (
-            <Image
-              source={{ uri: formatImageUrl(order.image) }}
-              style={tw`w-16 h-16 rounded-xl mr-3 bg-gray-100`}
-            />
-          ) : (
-            <View style={[tw`w-16 h-16 rounded-xl mr-3 items-center justify-center`, isDark ? tw`bg-zinc-800` : tw`bg-gray-100`]}>
-              <Package size={24} color="#6B7280" />
-            </View>
-          )}
+          <OrderThumbnail imageUri={order.image} category={order.category} isDark={isDark} />
 
           <View style={tw`flex-1`}>
             <Text style={[tw`font-bold text-sm`, isDark ? tw`text-zinc-100` : tw`text-gray-900`]} numberOfLines={2}>
@@ -3634,41 +3682,86 @@ export default function OrdersScreen({
                     </>
                   ) : (
                     <>
-                      {['Pending', 'Placed', 'Booking Received'].includes(selectedBooking.status) && (
-                        <View style={tw`flex-row gap-x-2`}>
-                          <TouchableOpacity
-                            onPress={() => handleStatusTransition(selectedBooking.id, 'Confirmed')}
-                            style={[tw`flex-1 py-3 rounded-2xl items-center justify-center bg-green-600`]}>
-                            <Text style={tw`text-white font-bold text-xs`}>Confirm Booking</Text>
-                          </TouchableOpacity>
-                          <TouchableOpacity
-                            onPress={() => handleStatusTransition(selectedBooking.id, 'Cancelled')}
-                            style={[tw`flex-1 py-3 rounded-2xl items-center justify-center bg-red-600`]}>
-                            <Text style={tw`text-white font-bold text-xs`}>Cancel</Text>
-                          </TouchableOpacity>
-                        </View>
-                      )}
-                      {selectedBooking.status === 'Confirmed' && selectedBooking.bookingCategory === 'Stay' && (
-                        <TouchableOpacity
-                          onPress={() => handleStatusTransition(selectedBooking.id, 'Checked In')}
-                          style={[tw`flex-1 py-3 rounded-2xl items-center justify-center bg-emerald-600`]}>
-                          <Text style={tw`text-white font-bold text-xs`}>Mark Guest Checked In</Text>
-                        </TouchableOpacity>
-                      )}
-                      {selectedBooking.status === 'Checked In' && (
-                        <TouchableOpacity
-                          onPress={() => handleStatusTransition(selectedBooking.id, 'Completed')}
-                          style={[tw`flex-1 py-3 rounded-2xl items-center justify-center bg-blue-600`]}>
-                          <Text style={tw`text-white font-bold text-xs`}>Mark Checked Out & Completed</Text>
-                        </TouchableOpacity>
-                      )}
-                      {selectedBooking.status === 'Confirmed' && selectedBooking.bookingCategory !== 'Stay' && (
-                        <TouchableOpacity
-                          onPress={() => handleStatusTransition(selectedBooking.id, 'Completed')}
-                          style={[tw`flex-1 py-3 rounded-2xl items-center justify-center bg-blue-600`]}>
-                          <Text style={tw`text-white font-bold text-xs`}>Mark Completed</Text>
-                        </TouchableOpacity>
-                      )}
+                      {(() => {
+                        const bStatus = String(selectedBooking.status || '').trim().toLowerCase();
+                        const isPending = ['pending', 'placed', 'booking received', 'order received', 'received'].includes(bStatus);
+                        const isConfirmed = ['confirmed', 'accepted', 'approved'].includes(bStatus);
+                        const isCheckedIn = ['checked in', 'in progress', 'started'].includes(bStatus);
+                        const isCompleted = ['completed', 'delivered', 'checked out'].includes(bStatus);
+                        const isCancelled = ['cancelled', 'rejected'].includes(bStatus);
+
+                        if (isPending) {
+                          return (
+                            <View style={tw`flex-row gap-x-2`}>
+                              <TouchableOpacity
+                                onPress={() => handleStatusTransition(selectedBooking.id, 'Confirmed')}
+                                style={[tw`flex-1 py-3.5 rounded-2xl items-center justify-center bg-green-600 shadow-sm`]}>
+                                <Text style={tw`text-white font-bold text-xs`}>✓ Confirm Booking</Text>
+                              </TouchableOpacity>
+                              <TouchableOpacity
+                                onPress={() => handleStatusTransition(selectedBooking.id, 'Cancelled')}
+                                style={[tw`flex-1 py-3.5 rounded-2xl items-center justify-center bg-red-600 shadow-sm`]}>
+                                <Text style={tw`text-white font-bold text-xs`}>✕ Cancel</Text>
+                              </TouchableOpacity>
+                            </View>
+                          );
+                        }
+
+                        if (isConfirmed) {
+                          if (selectedBooking.bookingCategory === 'Stay') {
+                            return (
+                              <View style={tw`flex-row gap-x-2`}>
+                                <TouchableOpacity
+                                  onPress={() => handleStatusTransition(selectedBooking.id, 'Checked In')}
+                                  style={[tw`flex-1 py-3.5 rounded-2xl items-center justify-center bg-emerald-600 shadow-sm`]}>
+                                  <Text style={tw`text-white font-bold text-xs`}>🏨 Mark Guest Checked In</Text>
+                                </TouchableOpacity>
+                                <TouchableOpacity
+                                  onPress={() => handleStatusTransition(selectedBooking.id, 'Cancelled')}
+                                  style={[tw`px-4 py-3.5 rounded-2xl items-center justify-center bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-800`]}>
+                                  <Text style={tw`text-red-600 dark:text-red-400 font-bold text-xs`}>Cancel</Text>
+                                </TouchableOpacity>
+                              </View>
+                            );
+                          }
+                          return (
+                            <View style={tw`flex-row gap-x-2`}>
+                              <TouchableOpacity
+                                onPress={() => handleStatusTransition(selectedBooking.id, 'Completed')}
+                                style={[tw`flex-1 py-3.5 rounded-2xl items-center justify-center bg-blue-600 shadow-sm`]}>
+                                <Text style={tw`text-white font-bold text-xs`}>✓ Mark Completed</Text>
+                              </TouchableOpacity>
+                              <TouchableOpacity
+                                onPress={() => handleStatusTransition(selectedBooking.id, 'Cancelled')}
+                                style={[tw`px-4 py-3.5 rounded-2xl items-center justify-center bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-800`]}>
+                                <Text style={tw`text-red-600 dark:text-red-400 font-bold text-xs`}>Cancel</Text>
+                              </TouchableOpacity>
+                            </View>
+                          );
+                        }
+
+                        if (isCheckedIn) {
+                          return (
+                            <TouchableOpacity
+                              onPress={() => handleStatusTransition(selectedBooking.id, 'Completed')}
+                              style={[tw`w-full py-3.5 rounded-2xl items-center justify-center bg-blue-600 shadow-sm`]}>
+                              <Text style={tw`text-white font-bold text-xs`}>✓ Mark Checked Out & Completed</Text>
+                            </TouchableOpacity>
+                          );
+                        }
+
+                        if (!isCompleted && !isCancelled) {
+                          return (
+                            <TouchableOpacity
+                              onPress={() => handleStatusTransition(selectedBooking.id, 'Completed')}
+                              style={[tw`w-full py-3.5 rounded-2xl items-center justify-center bg-blue-600 shadow-sm`]}>
+                              <Text style={tw`text-white font-bold text-xs`}>✓ Mark Completed</Text>
+                            </TouchableOpacity>
+                          );
+                        }
+
+                        return null;
+                      })()}
                     </>
                   )}
                 </View>

@@ -144,8 +144,14 @@ export default function VendorPaymentsScreen({
     if (selectedCategory !== 'All') {
       const cat = String(p.category || '').toLowerCase();
       const sel = selectedCategory.toLowerCase();
-      if (sel === 'products' && !['products', 'product'].includes(cat)) return false;
-      if (sel === 'food' && !['food', 'foods', 'restaurant'].includes(cat)) return false;
+      const itemName = String(p.itemName || '').toLowerCase();
+      const isFoodItem = /dosa|idly|biryani|chicken|pizza|burger|meal|curry|roti|paneer|tea|coffee|rice|snack|makhani|naan/i.test(itemName);
+
+      if (sel === 'products') {
+        if (isFoodItem || ['food', 'foods', 'restaurant'].includes(cat)) return false;
+        if (!['products', 'product', 'general'].includes(cat)) return false;
+      }
+      if (sel === 'food' && !['food', 'foods', 'restaurant'].includes(cat) && !isFoodItem) return false;
       if (sel === 'daily needs' && !['daily needs', 'daily need', 'grocery', 'pharmacy'].includes(cat)) return false;
       if (sel === 'services' && !['services', 'service', 'appointment'].includes(cat)) return false;
       if (sel === 'stay' && !['stay', 'hotel', 'resort'].includes(cat)) return false;

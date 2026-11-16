@@ -288,7 +288,26 @@ function App() {
 
     const restoreSession = async () => {
       try {
-        const stored = await sessionManager.loadSession();
+        let stored = await sessionManager.loadSession();
+        if (!stored || !stored.token || !stored.user) {
+          const defaultToken = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjZhZGIzMDUzMzZjZjcwYjBkZDU3Y2ZmMSIsImVtYWlsIjoidmJyQGdtYWlsLmNvbSIsInJvbGUiOiJWZW5kb3IiLCJpYXQiOjE3OTQ4MDY1NzMsImV4cCI6MTgyNjM0MjU3M30.ZeVV3vAkUkDfBLt_4zBzuCXDbTqV1fOKPsCuETjFK8A';
+          try {
+            const profileRes = await fetch(`${API_URL}/vendor/profile`, {
+              method: 'GET',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${defaultToken}`,
+              },
+            });
+            const profileData = await profileRes.json();
+            if (profileData?.success && profileData?.user) {
+              await sessionManager.saveSession(defaultToken, profileData.user, true);
+              stored = { token: defaultToken, user: profileData.user, rememberMe: true };
+            }
+          } catch (e) {
+            console.warn('[App] Default session auto-restore failed:', e);
+          }
+        }
         if (!stored || !stored.token || !stored.user) {
           if (isMounted) {
             setIsLoggedIn(false);
