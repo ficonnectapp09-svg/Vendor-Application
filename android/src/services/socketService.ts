@@ -106,6 +106,8 @@ class VendorSocketService {
         } else if (b && typeof b === 'object') {
           if (b._id) vendorIds.push(b._id.toString());
           if (b.id) vendorIds.push(b.id.toString());
+          if (b.vendorId) vendorIds.push(b.vendorId.toString());
+          if (b.businessId) vendorIds.push(b.businessId.toString());
         }
       });
     }
@@ -576,12 +578,13 @@ class VendorSocketService {
 
         if (Array.isArray(user?.businesses)) {
           user.businesses.forEach((b: any) => {
-            const bid = b?._id || b?.id || (typeof b === 'string' ? b : null);
+            const bid = b?._id || b?.id || b?.vendorId || b?.businessId || (typeof b === 'string' ? b : null);
             if (bid && this.socket) {
-              this.socket.emit('subscribe_topic', `vendor:${bid}`);
-              this.socket.emit('subscribe_topic', `business:${bid}`);
-              this.socket.emit('join', `vendor:${bid}`);
-              this.socket.emit('join', bid);
+              const bStr = bid.toString();
+              this.socket.emit('subscribe_topic', `vendor:${bStr}`);
+              this.socket.emit('subscribe_topic', `business:${bStr}`);
+              this.socket.emit('join', `vendor:${bStr}`);
+              this.socket.emit('join', bStr);
             }
           });
         }

@@ -267,13 +267,17 @@ const apiRequest = async (endpoint: string, options: any = {}) => {
   const userId = user?._id || user?.id || 'anon';
   const cacheKey = `${method}:${endpoint}:${headers['x-business-id'] || 'default'}:${userId}`;
   if (method === 'GET') {
-    const cached = apiCache.get(cacheKey);
-    if (cached && Date.now() < cached.expiry) {
-      return cached.data;
+    if (!options.forceRefresh) {
+      const cached = apiCache.get(cacheKey);
+      if (cached && Date.now() < cached.expiry) {
+        return cached.data;
+      }
+    } else {
+      apiCache.delete(cacheKey);
     }
 
     // In-flight request deduplication: return existing promise if identical request is pending
-    if (inFlightRequests.has(cacheKey)) {
+    if (inFlightRequests.has(cacheKey) && !options.forceRefresh) {
       return inFlightRequests.get(cacheKey);
     }
   }
@@ -1168,9 +1172,13 @@ export const fetchCustomerPurchases = async (
 };
 
 // Orders, Bookings & Applications
-export const fetchOrders = async () => {
+export const fetchOrders = async (forceRefresh: boolean = false) => {
+  if (forceRefresh) {
+    clearApiCache('/vendor/orders');
+  }
   const data = await apiRequest('/vendor/orders', {
     method: 'GET',
+    forceRefresh,
   });
   if (data && data.data) {
     return data.data;
@@ -1194,9 +1202,13 @@ export const fetchOrderById = async (id: string): Promise<any | null> => {
   }
 };
 
-export const fetchBookings = async () => {
+export const fetchBookings = async (forceRefresh: boolean = false) => {
+  if (forceRefresh) {
+    clearApiCache('/vendor/bookings');
+  }
   const data = await apiRequest('/vendor/bookings', {
     method: 'GET',
+    forceRefresh,
   });
   if (data && data.data) {
     return data.data;
@@ -1204,9 +1216,13 @@ export const fetchBookings = async () => {
   return [];
 };
 
-export const fetchApplications = async () => {
+export const fetchApplications = async (forceRefresh: boolean = false) => {
+  if (forceRefresh) {
+    clearApiCache('/vendor/applications');
+  }
   const data = await apiRequest('/vendor/applications', {
     method: 'GET',
+    forceRefresh,
   });
   if (data && data.data) {
     return data.data;

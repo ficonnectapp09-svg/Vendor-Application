@@ -521,7 +521,7 @@ export default function OrdersScreen({
   const isJobVendor = vendorUser && vendorUser.vendorType && vendorUser.vendorType.startsWith('Job');
   const regularStatusFilters = ['All', 'Pending', 'Preparing', 'Assigned', 'Delivered', 'Cancelled'];
   const bookingStatusFilters = ['All', 'Confirmed', 'Pending', 'Completed', 'Cancelled'];
-  const jobStatusFilters = ['All', 'Pending', 'Reviewed', 'Shortlisted', 'Interview Scheduled'];
+  const jobStatusFilters = ['All', 'Pending', 'Reviewed', 'Shortlisted', 'Interview Scheduled', 'Selected'];
 
   // Independent state per section initialized synchronously from fast memory cache (< 1ms)
   const [ordersRaw, setOrdersRaw] = useState<any[]>(() => {
@@ -581,9 +581,9 @@ export default function OrdersScreen({
 
     // Concurrently pre-fetch all segments in parallel so tab switching is instantaneous
     Promise.allSettled([
-      fetchOrders(),
-      fetchBookings(),
-      fetchApplications(),
+      fetchOrders(true),
+      fetchBookings(true),
+      fetchApplications(true),
     ]).then(([ordRes, bkgRes, jobRes]) => {
       if (!isMounted) return;
       if (ordRes.status === 'fulfilled' && Array.isArray(ordRes.value)) {
@@ -627,7 +627,7 @@ export default function OrdersScreen({
     if (segment === 'Orders') {
       if (!force && ordersRaw.length > 0) {
         // Instant tab transition: data already present in memory/cache. Revalidate silently in background.
-        fetchOrders().then((data) => {
+        fetchOrders(false).then((data) => {
           if (Array.isArray(data)) {
             setOrdersRaw(data);
             sessionManager.saveVendorCache(vendorId, 'orders_raw', data);
@@ -637,7 +637,7 @@ export default function OrdersScreen({
       }
       if (ordersRaw.length === 0) setLoadingOrders(true);
       try {
-        const data = await fetchOrders();
+        const data = await fetchOrders(force);
         const list = Array.isArray(data) ? data : [];
         setOrdersRaw(list);
         sessionManager.saveVendorCache(vendorId, 'orders_raw', list);
@@ -649,7 +649,7 @@ export default function OrdersScreen({
     } else if (segment === 'Bookings') {
       if (!force && bookingsRaw.length > 0) {
         // Instant tab transition: data already present in memory/cache. Revalidate silently in background.
-        fetchBookings().then((data) => {
+        fetchBookings(false).then((data) => {
           if (Array.isArray(data)) {
             setBookingsRaw(data);
             sessionManager.saveVendorCache(vendorId, 'bookings_raw', data);
@@ -659,7 +659,7 @@ export default function OrdersScreen({
       }
       if (bookingsRaw.length === 0) setLoadingBookings(true);
       try {
-        const data = await fetchBookings();
+        const data = await fetchBookings(force);
         const list = Array.isArray(data) ? data : [];
         setBookingsRaw(list);
         sessionManager.saveVendorCache(vendorId, 'bookings_raw', list);
@@ -671,7 +671,7 @@ export default function OrdersScreen({
     } else if (segment === 'Jobs') {
       if (!force && jobsRaw.length > 0) {
         // Instant tab transition: data already present in memory/cache. Revalidate silently in background.
-        fetchApplications().then((data) => {
+        fetchApplications(false).then((data) => {
           if (Array.isArray(data)) {
             setJobsRaw(data);
             sessionManager.saveVendorCache(vendorId, 'jobs_raw', data);
@@ -681,7 +681,7 @@ export default function OrdersScreen({
       }
       if (jobsRaw.length === 0) setLoadingJobs(true);
       try {
-        const data = await fetchApplications();
+        const data = await fetchApplications(force);
         const list = Array.isArray(data) ? data : [];
         setJobsRaw(list);
         sessionManager.saveVendorCache(vendorId, 'jobs_raw', list);
@@ -697,17 +697,17 @@ export default function OrdersScreen({
     setRefreshing(true);
     try {
       if (activeSegment === 'Orders') {
-        const data = await fetchOrders();
+        const data = await fetchOrders(true);
         const list = Array.isArray(data) ? data : [];
         setOrdersRaw(list);
         sessionManager.saveVendorCache(vendorId, 'orders_raw', list);
       } else if (activeSegment === 'Bookings') {
-        const data = await fetchBookings();
+        const data = await fetchBookings(true);
         const list = Array.isArray(data) ? data : [];
         setBookingsRaw(list);
         sessionManager.saveVendorCache(vendorId, 'bookings_raw', list);
       } else {
-        const data = await fetchApplications();
+        const data = await fetchApplications(true);
         const list = Array.isArray(data) ? data : [];
         setJobsRaw(list);
         sessionManager.saveVendorCache(vendorId, 'jobs_raw', list);
@@ -1142,26 +1142,33 @@ export default function OrdersScreen({
     }
   };
 
+  const SERVICE_KEYWORDS_REGEX = /\b(electrician|plumber|technician|solar|repair|repairs|cctv|cleaning|service|services|consultation|doctor|nurse|clinic|hospital|lineman|mechanic|carpenter|painter|handyman)\b/i;
+
   const isJobItem = (o: any) => {
     if (!o) return false;
-    const cat = String(o.category || o.type || '').toLowerCase();
+    const raw = o.rawOrder || o;
+    const cat = String(raw.category || raw.type || '').toLowerCase();
     if (['services', 'service', 'stay', 'travel', 'travels', 'products', 'food', 'daily needs'].includes(cat)) {
-      if (!o.jobId && !o.applicationId && !cat.includes('job')) return false;
+      if (!raw.jobId && !raw.applicationId && !cat.includes('job')) return false;
     }
-    const orderNum = String(o.order_number || o.id || o.rawOrder?.order_number || '');
-    const id = String(o.id || o._id || '');
+    const orderNum = String(raw.order_number || raw.id || raw.rawOrder?.order_number || '');
+    const id = String(raw.id || raw._id || '');
+    const statusUpper = String(raw.status || '').toUpperCase().trim();
     return Boolean(
       cat === 'jobs' ||
       cat === 'job' ||
       orderNum.startsWith('JOB') ||
       orderNum.includes('JOB-') ||
       id.startsWith('ord_job') ||
-      (o.jobId || o.applicationId) ||
-      (o.candidateResume && String(o.candidateResume).trim() !== '' && o.candidateResume !== 'null') ||
-      o.resume_name ||
-      o.application_status ||
-      String(o.customerAddress || o.customer_address || '').includes('Resume:') ||
-      ['Application Submitted', 'Applied', 'Under Review', 'Reviewed', 'Shortlisted', 'Interview Scheduled', 'Interviewing', 'Hired'].includes(o.status)
+      (raw.jobId || raw.applicationId) ||
+      (raw.candidateResume && String(raw.candidateResume).trim() !== '' && raw.candidateResume !== 'null') ||
+      raw.resume_name ||
+      raw.application_status ||
+      String(raw.customerAddress || raw.customer_address || '').includes('Resume:') ||
+      [
+        'APPLICATION SUBMITTED', 'APPLIED', 'APPLICATION RECEIVED', 'UNDER REVIEW', 'REVIEWED',
+        'SHORTLISTED', 'INTERVIEW SCHEDULED', 'INTERVIEWING', 'HIRED', 'SELECTED', 'REJECTED'
+      ].includes(statusUpper)
     );
   };
 
@@ -1185,12 +1192,17 @@ export default function OrdersScreen({
     if (bookingCatInfo && ['Services', 'Stay', 'Travel'].includes(bookingCatInfo.category)) {
       return false;
     }
-    const cat = String(o.category || o.type || '').trim().toLowerCase();
+    const raw = o.rawOrder || o;
+    const cat = String(raw.category || raw.type || '').trim().toLowerCase();
     if (['travel', 'stay', 'services', 'service', 'booking', 'appointment', 'hotel', 'hospital', 'doctor', 'technician'].includes(cat) ||
-        o.serviceName || o.appointment_slot || o.checkInDate || o.checkOutDate || o.roomNumber || o.bus_name || o.travelers) {
+        raw.appointment_slot || raw.checkInDate || raw.checkOutDate || raw.roomNumber || raw.bus_name || raw.travelers) {
       return false;
     }
-    if (o.transactionType === 'Booking') return false;
+    // Only exclude serviceName if it matches genuine service keywords, protecting food dishes (e.g. "Ka", "Mutto")
+    if (raw.serviceName && SERVICE_KEYWORDS_REGEX.test(String(raw.serviceName))) {
+      return false;
+    }
+    if (raw.transactionType === 'Booking') return false;
     return true;
   };
 
@@ -1202,9 +1214,11 @@ export default function OrdersScreen({
     if (bookingCatInfo && ['Services', 'Stay', 'Travel'].includes(bookingCatInfo.category)) {
       return true;
     }
-    const cat = String(o.category || o.type || '').trim().toLowerCase();
+    const raw = o.rawOrder || o;
+    const cat = String(raw.category || raw.type || '').trim().toLowerCase();
+    const hasServiceKeyword = raw.serviceName && SERVICE_KEYWORDS_REGEX.test(String(raw.serviceName));
     return ['travel', 'stay', 'services', 'service', 'booking', 'appointment', 'hotel', 'hospital', 'doctor', 'technician'].includes(cat) ||
-           Boolean(o.serviceName) || Boolean(o.appointment_slot) || Boolean(o.checkInDate) || Boolean(o.roomNumber);
+           Boolean(hasServiceKeyword) || Boolean(raw.appointment_slot) || Boolean(raw.checkInDate) || Boolean(raw.roomNumber);
   };
 
   const formatStructuredAddress = (addr: any): string => {
@@ -2426,22 +2440,23 @@ export default function OrdersScreen({
   const filteredOrders = ordersData
     .filter(o => {
       if (activeFilter === 'All') return true;
+      const st = String(o.status || '').toUpperCase().trim();
       if (activeFilter === 'Pending') {
-        return ['Pending', 'Order Received', 'Placed', 'New'].includes(o.status);
+        return ['PENDING', 'ORDER RECEIVED', 'PLACED', 'NEW', 'PAYMENT PENDING', 'ORDER PLACED', 'ORDERED', 'CREATED', 'REQUESTED'].includes(st);
       }
       if (activeFilter === 'Preparing') {
-        return ['Accepted', 'Preparing', 'Confirmed', 'Processing'].includes(o.status);
+        return ['ACCEPTED', 'PREPARING', 'CONFIRMED', 'PROCESSING', 'PAID'].includes(st);
       }
       if (activeFilter === 'Assigned') {
-        return ['Assigned', 'Out for Delivery', 'In Transit'].includes(o.status);
+        return ['ASSIGNED', 'OUT FOR DELIVERY', 'IN TRANSIT'].includes(st);
       }
       if (activeFilter === 'Delivered') {
-        return ['Delivered', 'Completed'].includes(o.status);
+        return ['DELIVERED', 'COMPLETED'].includes(st);
       }
       if (activeFilter === 'Cancelled') {
-        return ['Cancelled', 'Declined', 'Rejected'].includes(o.status);
+        return ['CANCELLED', 'DECLINED', 'REJECTED'].includes(st);
       }
-      return o.status === activeFilter;
+      return st === String(activeFilter).toUpperCase().trim();
     })
     .filter(o => {
       if (!searchQuery) return true;
@@ -2461,22 +2476,23 @@ export default function OrdersScreen({
         return false;
       }
       if (activeFilter === 'All') return true;
+      const st = String(b.status || '').toUpperCase().trim();
       if (activeFilter === 'Pending') {
-        return ['Pending', 'Order Received', 'Placed', 'New'].includes(b.status);
+        return ['PENDING', 'ORDER RECEIVED', 'PLACED', 'NEW', 'BOOKING REQUESTED'].includes(st);
       }
       if (activeFilter === 'Confirmed') {
-        return ['Confirmed', 'Accepted', 'Approved', 'Checked In'].includes(b.status);
+        return ['CONFIRMED', 'ACCEPTED', 'APPROVED', 'CHECKED IN', 'BOOKED', 'BOOKING CONFIRMED'].includes(st);
       }
       if (activeFilter === 'Preparing' || activeFilter === 'Assigned') {
-        return ['Accepted', 'Preparing', 'Confirmed', 'Processing', 'Assigned'].includes(b.status);
+        return ['ACCEPTED', 'PREPARING', 'CONFIRMED', 'PROCESSING', 'ASSIGNED'].includes(st);
       }
       if (activeFilter === 'Delivered' || activeFilter === 'Completed') {
-        return ['Delivered', 'Completed'].includes(b.status);
+        return ['DELIVERED', 'COMPLETED', 'CHECKED OUT'].includes(st);
       }
       if (activeFilter === 'Cancelled') {
-        return ['Cancelled', 'Declined', 'Rejected'].includes(b.status);
+        return ['CANCELLED', 'DECLINED', 'REJECTED'].includes(st);
       }
-      return b.status === (activeFilter as any);
+      return st === String(activeFilter).toUpperCase().trim();
     })
     .filter(b => {
       if (!searchQuery) return true;
@@ -2492,19 +2508,23 @@ export default function OrdersScreen({
   const filteredJobs = jobsData
     .filter(o => {
       if (activeFilter === 'All') return true;
+      const st = String(o.status || '').toUpperCase().trim();
       if (activeFilter === 'Pending') {
-        return ['Pending', 'Application Submitted', 'Applied'].includes(o.status);
+        return ['PENDING', 'APPLICATION SUBMITTED', 'APPLIED', 'APPLICATION RECEIVED', 'NEW'].includes(st);
       }
       if (activeFilter === 'Reviewed') {
-        return ['Reviewed', 'Under Review'].includes(o.status);
+        return ['REVIEWED', 'UNDER REVIEW'].includes(st);
       }
       if (activeFilter === 'Shortlisted') {
-        return ['Shortlisted'].includes(o.status);
+        return ['SHORTLISTED'].includes(st);
       }
       if (activeFilter === 'Interview Scheduled') {
-        return ['Interview Scheduled', 'Interviewing'].includes(o.status);
+        return ['INTERVIEW SCHEDULED', 'INTERVIEWING'].includes(st);
       }
-      return o.status === activeFilter;
+      if (activeFilter === 'Selected') {
+        return ['SELECTED', 'HIRED', 'ACCEPTED'].includes(st);
+      }
+      return st === String(activeFilter).toUpperCase().trim();
     })
     .filter(o => {
       if (!searchQuery) return true;
@@ -2514,7 +2534,8 @@ export default function OrdersScreen({
         (o.id && o.id.toLowerCase().includes(q)) ||
         (o.customerName && o.customerName.toLowerCase().includes(q)) ||
         (o.customerPhone && o.customerPhone.toLowerCase().includes(q)) ||
-        (o.customerAddress && o.customerAddress.toLowerCase().includes(q))
+        (o.customerAddress && o.customerAddress.toLowerCase().includes(q)) ||
+        (o.candidateEmail && o.candidateEmail.toLowerCase().includes(q))
       );
     });
 
