@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { fetchAnalytics, getVendorUser, fetchProfile, fetchOrders, fetchBookings, updateOrderStatus, fetchCustomers, CustomerItem, addLocalOrder, normalizeCategory, fetchVendorRatings, fetchAllBusinessesProducts, fetchVendorNotifications, markNotificationAsRead, updateAcceptingOrders } from '../services/apiService';
+import { fetchAnalytics, getVendorUser, fetchProfile, fetchOrders, fetchBookings, updateOrderStatus, fetchCustomers, CustomerItem, addLocalOrder, normalizeCategory, fetchVendorRatings, fetchAllBusinessesProducts, fetchVendorNotifications, markNotificationAsRead, updateAcceptingOrders, fetchVendorSettlements } from '../services/apiService';
 import { sessionManager } from '../services/sessionManager';
 import { socketService } from '../services/socketService';
 import { soundNotificationService } from '../services/soundNotificationService';
@@ -205,6 +205,7 @@ export default function HomeScreen({
   });
 
   const [analytics, setAnalytics] = useState<any>(null);
+  const [settledRevenue, setSettledRevenue] = useState<number>(0);
   const [loading, setLoading] = useState(false);
   const [recentOrdersList, setRecentOrdersList] = useState<any[]>([]);
   const [recentBookingsList, setRecentBookingsList] = useState<any[]>([]);
@@ -216,13 +217,21 @@ export default function HomeScreen({
       setLoading(true);
     }
     try {
-      const [data, ordersData, bookingsData] = await Promise.all([
+      const [data, ordersData, bookingsData, settData] = await Promise.all([
         fetchAnalytics(),
         fetchOrders().catch(() => []),
         fetchBookings().catch(() => []),
+        fetchVendorSettlements().catch(() => null),
       ]);
       setAnalytics(data);
       sessionManager.saveVendorCache(vendorId, 'analytics', data);
+
+      if (settData && (settData.success || settData.data)) {
+        const sSummary = settData.summary || {};
+        const sAmt = Number(sSummary.totalReceived ?? sSummary.totalSettled ?? 0);
+        setSettledRevenue(sAmt);
+        sessionManager.saveVendorCache(vendorId, 'settled_revenue', sAmt);
+      }
 
       if (Array.isArray(ordersData)) {
         // Seed existing order IDs into socketService so startup orders NEVER trigger alerts
@@ -258,12 +267,14 @@ export default function HomeScreen({
       sessionManager.getVendorCache(vendorId, 'recent_orders'),
       sessionManager.getVendorCache(vendorId, 'recent_bookings'),
       sessionManager.getVendorCache(vendorId, 'ratings'),
-    ]).then(([cAnalytics, cOrders, cBookings, cRatings]) => {
+      sessionManager.getVendorCache(vendorId, 'settled_revenue'),
+    ]).then(([cAnalytics, cOrders, cBookings, cRatings, cSettled]) => {
       if (!isMounted) return;
       if (cAnalytics) setAnalytics(cAnalytics);
       if (Array.isArray(cOrders) && cOrders.length > 0) setRecentOrdersList(cOrders);
       if (Array.isArray(cBookings) && cBookings.length > 0) setRecentBookingsList(cBookings);
       if (cRatings) setRatingsData(cRatings);
+      if (typeof cSettled === 'number') setSettledRevenue(cSettled);
     }).catch(() => {});
 
     loadAnalytics();
@@ -339,8 +350,8 @@ export default function HomeScreen({
     },
     {
       label: 'Settled Revenue',
-      value: `₹${totalRevenue.toLocaleString()}`,
-      change: 'Settled',
+      value: `₹${settledRevenue.toLocaleString()}`,
+      change: 'Bank Settled',
       icon: Wallet,
       color: '#7C3AED',
       bgColor: '#F5F3FF',
@@ -727,12 +738,12 @@ export default function HomeScreen({
                   Total Revenue
                 </Text>
                 <Text style={tw`text-white text-3xl font-bold tracking-tight`}>
-                  ₹{(grossSales ?? 0).toLocaleString()}
+                  ₹{(totalRevenue || grossSales || 0).toLocaleString()}
                 </Text>
                 <View style={tw`flex-row items-center mt-2`}>
                   <TrendingUp size={14} color="#86EFAC" />
                   <Text style={tw`text-green-300 text-sm font-semibold ml-1`}>
-                    {analytics?.ordersCount ?? analytics?.totalOrdersCount ?? (Array.isArray(recentOrdersList) ? recentOrdersList.length : 0)} Orders
+                    {totalOrders} Paid Orders
                   </Text>
                   <Text style={[tw`text-sm ml-1`, { color: 'rgba(255,255,255,0.7)' }]}>
                     Recorded

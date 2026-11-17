@@ -36,6 +36,7 @@ import {
   CheckCircle2,
   AlertCircle,
 } from 'lucide-react-native';
+import { sanitizeCustomerAddress } from './OrdersScreen';
 import {
   fetchCustomers,
   fetchCustomerPurchases,
@@ -317,10 +318,10 @@ export default function CustomersScreen({
             const canonicalId = formatCustomerId(customer);
             const isCanonical = canonicalId !== 'N/A';
             const avatarUrl = getCustomerAvatarUrl(customer);
-            const gender =
-              customer.gender && customer.gender !== 'Not provided'
-                ? customer.gender
-                : customer.gender || 'Not specified';
+            const rawGender = String(customer.gender || '').trim().toLowerCase();
+            const gender = (rawGender && rawGender !== 'not provided' && rawGender !== 'not specified' && rawGender !== 'undefined' && rawGender !== 'null' && rawGender !== '')
+              ? (rawGender.charAt(0).toUpperCase() + rawGender.slice(1))
+              : 'Not Available';
 
             return (
               <View
@@ -410,9 +411,8 @@ export default function CustomersScreen({
                   <View style={[tw`flex-row items-start px-3 py-2 rounded-2xl mb-3.5`, isDark ? tw`bg-zinc-950/40` : tw`bg-gray-50/80`]}>
                     <MapPin size={13} color={isDark ? '#818CF8' : '#4F46E5'} style={tw`mr-2 mt-0.5`} />
                     <Text
-                      style={[tw`text-xs font-medium flex-1 leading-relaxed`, isDark ? tw`text-zinc-300` : tw`text-gray-700`]}
-                      numberOfLines={3}>
-                      {customer.address}
+                      style={[tw`text-xs font-medium flex-1 leading-relaxed`, isDark ? tw`text-zinc-300` : tw`text-gray-700`]}>
+                      {sanitizeCustomerAddress(customer.address)}
                     </Text>
                   </View>
                 ) : null}
@@ -485,6 +485,14 @@ export default function CustomersScreen({
                   ID: {selectedCustomer ? formatCustomerId(selectedCustomer) : 'N/A'} • Spent: ₹
                   {Number(selectedCustomer?.totalSpent || 0).toLocaleString('en-IN')}
                 </Text>
+                {selectedCustomer?.address && selectedCustomer.address !== 'Not provided' && selectedCustomer.address !== 'N/A' ? (
+                  <View style={tw`flex-row items-start mt-1.5`}>
+                    <MapPin size={11} color={isDark ? '#818CF8' : '#4F46E5'} style={tw`mr-1.5 mt-0.5`} />
+                    <Text style={[tw`text-[11px] leading-4 flex-1`, isDark ? tw`text-zinc-400` : tw`text-gray-600`]}>
+                      {sanitizeCustomerAddress(selectedCustomer.address)}
+                    </Text>
+                  </View>
+                ) : null}
               </View>
 
               <TouchableOpacity

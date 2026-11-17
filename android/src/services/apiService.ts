@@ -544,7 +544,14 @@ export const mapApiProductToBusinessItem = (product: any, categoryFallback: Cate
       return formatImageUrl(rawImg);
     })(),
     subCategory: product.subCategory || product.subcategory || product.category || 'General',
-    itemType: product.itemType || product.specialization || product.roomType || product.foodType || '',
+    itemType: (() => {
+      if (resolvedCategory !== 'Food') {
+        const raw = product.itemType || product.specialization || product.roomType || '';
+        if (['veg', 'non-veg', 'egg'].includes(String(raw).toLowerCase())) return '';
+        return raw;
+      }
+      return product.itemType || product.foodType || '';
+    })(),
     unit: product.unit || 'count',
     stock: String(product.stock || product.vacancies || 0),
     pinCode: product.pinCode || '',
@@ -592,7 +599,9 @@ export const mapApiProductToBusinessItem = (product: any, categoryFallback: Cate
     vehicleRegNo: product.vehicleRegNo || product.vehicleNumber || product.busNumber || '',
     busNumber: product.busNumber || product.vehicleNumber || product.vehicleRegNo || '',
     seatsLeft: product.seatsLeft ? Number(product.seatsLeft) : (product.stock ? Number(product.stock) : 0),
-    foodType: product.foodType || (product.itemType === 'Veg' || product.itemType === 'Non-Veg' ? product.itemType : ''),
+    foodType: resolvedCategory === 'Food'
+      ? (product.foodType || (['Veg', 'Non-Veg'].includes(product.itemType) ? product.itemType : 'Veg'))
+      : '',
     preparationTime: product.preparationTime || '',
     offer: product.offer && (product.offer.title || product.offer.discountValue || product.offer.offerPrice) ? {
       title: product.offer.title || 'Special Offer',
@@ -1571,11 +1580,13 @@ export const verifySubscriptionPayment = async (payload: {
 // Payments & Settlements API
 // ==========================================
 
-export const fetchSalesPayments = async (params?: { page?: number; limit?: number; status?: string }) => {
+export const fetchSalesPayments = async (params?: { page?: number; limit?: number; status?: string; category?: string; search?: string }) => {
   const queryParams = new URLSearchParams();
   if (params?.page) queryParams.append('page', String(params.page));
   if (params?.limit) queryParams.append('limit', String(params.limit));
   if (params?.status) queryParams.append('status', params.status);
+  if (params?.category) queryParams.append('category', params.category);
+  if (params?.search) queryParams.append('search', params.search);
   const qs = queryParams.toString() ? `?${queryParams.toString()}` : '';
   const data = await apiRequest(`/vendor/payments/sales${qs}`, { method: 'GET' });
   return data;

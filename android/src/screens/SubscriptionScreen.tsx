@@ -328,7 +328,7 @@ export default function SubscriptionScreen({
               <ShieldCheck size={16} color="#10B981" />
             </View>
             <Text style={[tw`text-xl font-extrabold text-emerald-600`]}>
-              {summary.activeCount || subscriptionsList.filter(s => s.status === 'active').length}
+              {summary.activeCount ?? subscriptionsList.filter(s => String(s.status || '').toLowerCase() === 'active').length}
             </Text>
           </View>
 
@@ -345,7 +345,7 @@ export default function SubscriptionScreen({
               <AlertCircle size={16} color="#F59E0B" />
             </View>
             <Text style={[tw`text-xl font-extrabold text-amber-600`]}>
-              {summary.expiredCount || subscriptionsList.filter(s => s.status !== 'active').length}
+              {summary.expiredCount ?? subscriptionsList.filter(s => String(s.status || '').toLowerCase() === 'expired').length}
             </Text>
           </View>
 

@@ -902,11 +902,16 @@ export default function BusinessScreen({
       });
       return;
     }
+    const previousState = item.isActive;
+    const newActive = !previousState;
+    const updatedItem = { ...item, isActive: newActive };
+    // Optimistic UI update
+    setItems(prev => prev.map(i => i.id === id ? updatedItem : i));
     try {
-      const updatedItem = { ...item, isActive: !item.isActive };
       await updateProduct(id, updatedItem);
-      setItems(prev => prev.map(i => i.id === id ? updatedItem : i));
     } catch (err: any) {
+      // Revert optimistic update on failure
+      setItems(prev => prev.map(i => i.id === id ? { ...item, isActive: previousState } : i));
       Alert.alert('Error', err.message || 'Failed to update item status.');
     } finally {
       setTogglingItemIds(prev => {
@@ -2313,11 +2318,11 @@ export default function BusinessScreen({
                     ]}>
                     {/* Product/Service Image (Hidden for Jobs) */}
                     {!(item.category === 'Jobs' || selectedCategory === 'Jobs') && (
-                      <View style={[tw`w-20 h-20 rounded-xl mr-3.5 border items-center justify-center overflow-hidden self-start`, isDark ? tw`bg-zinc-800 border-zinc-700` : tw`bg-gray-50 border-gray-200`]}>
+                      <View style={[tw`w-20 h-20 rounded-2xl mr-3.5 border items-center justify-center overflow-hidden`, isDark ? tw`bg-zinc-800 border-zinc-700` : tw`bg-gray-100 border-gray-200`]}>
                         <Image
                           source={{ uri: formatImageUrl(item.image) || categoryImages[item.category as CategoryKey] || categoryImages['Products'] }}
                           style={tw`w-full h-full`}
-                          resizeMode="contain"
+                          resizeMode="cover"
                         />
                       </View>
                     )}
@@ -2339,10 +2344,10 @@ export default function BusinessScreen({
                           </View>
                         ) : null}
                         {item.itemType &&
-                         !['Standard', 'General', 'Default'].includes(item.itemType) &&
+                         !['Standard', 'General', 'Default', 'Count', 'Piece'].includes(item.itemType) &&
                          item.itemType !== item.subCategory &&
                          item.itemType !== item.category &&
-                         !(item.category === 'Food' && (item.itemType === 'Veg' || item.itemType === 'Non-Veg' || item.itemType === item.foodType)) ? (
+                         !['veg', 'non-veg', 'pure veg', 'egg'].includes(item.itemType.toLowerCase()) ? (
                           <View style={[tw`px-2 py-0.5 rounded-md bg-purple-50 mr-1.5`, isDark && tw`bg-purple-950`]}>
                             <Text style={[tw`text-[10px] font-bold text-purple-600`, isDark && tw`text-purple-300`]}>
                               {item.itemType}
@@ -2436,18 +2441,13 @@ export default function BusinessScreen({
                         </View>
                       ) : item.category === 'Food' ? (
                         <View style={tw`mt-1.5`}>
-                          <View style={tw`flex-row items-center gap-2 mb-1`}>
-                            <View style={[tw`px-2 py-0.5 rounded-md`, item.foodType === 'Non-Veg' ? tw`bg-rose-50 dark:bg-rose-950` : tw`bg-emerald-50 dark:bg-emerald-950`]}>
-                              <Text style={[tw`text-[10px] font-bold`, item.foodType === 'Non-Veg' ? tw`text-rose-600 dark:text-rose-300` : tw`text-emerald-600 dark:text-emerald-300`]}>
-                                {item.foodType === 'Non-Veg' ? '🔴 Non-Veg' : '🟢 Veg'}
-                              </Text>
-                            </View>
-                            {item.subCategory ? (
+                          {item.subCategory ? (
+                            <View style={tw`flex-row items-center gap-2 mb-1`}>
                               <Text style={[tw`text-[11px] font-medium`, isDark ? tw`text-zinc-400` : tw`text-gray-500`]}>
                                 {item.subCategory}
                               </Text>
-                            ) : null}
-                          </View>
+                            </View>
+                          ) : null}
                           {item.detail ? (
                             <Text style={[tw`text-xs mt-0.5`, isDark ? tw`text-zinc-400` : tw`text-gray-500`]} numberOfLines={1}>
                               {item.detail}

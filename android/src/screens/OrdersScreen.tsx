@@ -92,18 +92,40 @@ export const sanitizeCustomerAddress = (addrStr?: string): string => {
   if (!addrStr || typeof addrStr !== 'string') return addrStr || '';
   let res = addrStr.trim();
 
+  // Strip object strings and null representations
+  res = res.replace(/\[object\s+Object\]/gi, '').replace(/\bundefined\b/gi, '').replace(/\bnull\b/gi, '').trim();
+
   // Deduplicate repeating comma-separated segments (e.g. repeated city, state, or pincode)
   const segments = res.split(',').map(s => s.trim()).filter(Boolean);
   const seenNorm = new Set<string>();
+  const seenPincodes = new Set<string>();
   const cleanSegments: string[] = [];
+
   for (const seg of segments) {
-    const norm = seg.toLowerCase().replace(/[\s-]+/g, ' ');
+    let norm = seg.toLowerCase().replace(/[\s-]+/g, ' ').trim();
+    if (norm === 'bangalore' || norm === 'bangaluru') norm = 'bengaluru';
+
+    // 6-digit postal code check
+    const pinMatch = seg.match(/\b([1-9][0-9]{5})\b/);
+    if (pinMatch) {
+      const pin = pinMatch[1];
+      if (seenPincodes.has(pin)) {
+        const stripped = seg.replace(new RegExp(`\\b${pin}\\b`, 'g'), '').replace(/[\s-]+$/, '').trim();
+        if (stripped && !seenNorm.has(stripped.toLowerCase())) {
+          seenNorm.add(stripped.toLowerCase());
+          cleanSegments.push(stripped);
+        }
+        continue;
+      }
+      seenPincodes.add(pin);
+    }
+
     if (!seenNorm.has(norm)) {
       seenNorm.add(norm);
       cleanSegments.push(seg);
     }
   }
-  res = cleanSegments.join(', ');
+  res = cleanSegments.join(', ').replace(/,\s*,/g, ',').replace(/\s*,\s*$/, '').trim();
 
   // If address contains Tamil Nadu districts or 60xxxx-64xxxx pincodes with 'Karnataka'
   const isTN = /\b(dharmapuri|harur|salem|chennai|coimbatore|madurai|trichy|tiruchirappalli|tiruppur|erode|vellore|kanchipuram|hosur|krishnagiri|thanjavur|dindigul|cuddalore|tirunelveli|tuticorin|thoothukudi)\b/i.test(res) ||
@@ -3133,7 +3155,7 @@ export default function OrdersScreen({
                         <View style={tw`flex-row items-start pt-3`}>
                           <MapPin size={14} color="#6B7280" style={tw`mr-3 mt-0.5`} />
                           <Text style={[tw`text-sm font-semibold flex-1`, isDark ? tw`text-zinc-300` : tw`text-gray-700`]}>
-                            {resolveCustomerLocation(selectedOrder.rawOrder || selectedOrder) || selectedOrder.customerAddress || 'Delivery Address Provided with Order'}
+                            {selectedOrder.customerAddress || sanitizeCustomerAddress(resolveCustomerLocation(selectedOrder.rawOrder || selectedOrder)) || 'Delivery Address Provided with Order'}
                           </Text>
                         </View>
                       </View>

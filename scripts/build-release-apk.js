@@ -101,6 +101,26 @@ async function buildRelease() {
   runCommand(bundleCmd);
   console.log('✅ Offline Release JavaScript bundle compiled successfully.');
 
+  // Synchronize bundle into Gradle's generated and intermediate asset locations to prevent stale cache
+  const generatedReactAssets = path.join(ANDROID_DIR, 'app', 'build', 'generated', 'assets', 'react', 'release');
+  if (!fs.existsSync(generatedReactAssets)) {
+    fs.mkdirSync(generatedReactAssets, { recursive: true });
+  }
+  fs.copyFileSync(
+    path.join(assetsDir, 'index.android.bundle'),
+    path.join(generatedReactAssets, 'index.android.bundle')
+  );
+
+  const intermediatesAssets = path.join(ANDROID_DIR, 'app', 'build', 'intermediates', 'assets', 'release', 'mergeReleaseAssets');
+  if (fs.existsSync(intermediatesAssets)) {
+    try {
+      fs.copyFileSync(
+        path.join(assetsDir, 'index.android.bundle'),
+        path.join(intermediatesAssets, 'index.android.bundle')
+      );
+    } catch (e) {}
+  }
+
   // Clean previous output APK to guarantee fresh packaging
   const oldApk = path.join(ANDROID_DIR, 'app', 'build', 'outputs', 'apk', 'release', 'app-release.apk');
   if (fs.existsSync(oldApk)) {

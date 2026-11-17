@@ -57,6 +57,7 @@ export default function VendorPaymentsScreen({
   // Data states
   const [salesPayments, setSalesPayments] = useState<any[]>([]);
   const [salesSummary, setSalesSummary] = useState<any>({ totalAmount: 0, count: 0 });
+  const [categoryTotals, setCategoryTotals] = useState<Record<string, any>>({});
   const [settlements, setSettlements] = useState<any[]>([]);
   const [settlementsSummary, setSettlementsSummary] = useState<any>({
     totalSettled: 0,
@@ -67,8 +68,8 @@ export default function VendorPaymentsScreen({
   const loadData = async () => {
     try {
       const [salesRes, settRes] = await Promise.all([
-        fetchSalesPayments().catch(() => null),
-        fetchVendorSettlements().catch(() => null),
+        fetchSalesPayments({ limit: 100 }).catch(() => null),
+        fetchVendorSettlements({ limit: 50 }).catch(() => null),
       ]);
 
       let updatedSales = salesPayments;
@@ -88,6 +89,9 @@ export default function VendorPaymentsScreen({
             totalVendorReceived: salesRes.summary.totalVendorReceived || 0,
           };
           setSalesSummary(updatedSalesSummary);
+          if (salesRes.summary.categoryTotals) {
+            setCategoryTotals(salesRes.summary.categoryTotals);
+          }
         }
       }
 
@@ -172,6 +176,10 @@ export default function VendorPaymentsScreen({
     const bank = String(s.bankName || s.accountNumber || '').toLowerCase();
     return utr.includes(q) || bank.includes(q);
   });
+
+  const displayGrossSales = selectedCategory === 'All'
+    ? (salesSummary.totalAmount || 0)
+    : (categoryTotals[selectedCategory]?.totalSales ?? filteredSales.reduce((sum, p) => sum + Number(p.saleAmount || p.totalAmount || 0), 0));
 
   return (
     <View style={[tw`flex-1`, isDark ? tw`bg-zinc-950` : tw`bg-gray-50`]}>
@@ -288,7 +296,7 @@ export default function VendorPaymentsScreen({
                 <ArrowDownLeft size={16} color="#10B981" />
               </View>
               <Text style={[tw`text-xl font-extrabold text-emerald-600`]}>
-                ₹{(salesSummary.totalAmount || 0).toLocaleString()}
+                ₹{displayGrossSales.toLocaleString()}
               </Text>
             </View>
 
@@ -303,7 +311,7 @@ export default function VendorPaymentsScreen({
                     Sales Completed
                   </Text>
                   <Text style={[tw`text-[10px]`, isDark ? tw`text-zinc-500` : tw`text-gray-400`]}>
-                    {selectedCategory === 'All' ? '113 Orders • 58 Bookings' : `${selectedCategory} Transactions`}
+                    {selectedCategory === 'All' ? `${filteredSales.length} Total Transactions` : `${selectedCategory} Completed Transactions`}
                   </Text>
                 </View>
                 <CreditCard size={16} color="#4F46E5" />

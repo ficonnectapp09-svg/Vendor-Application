@@ -128,21 +128,21 @@ export default function NewActivityModal({
     ['stay', 'hotel', 'resort'].includes(rawType)
   );
 
-  let txTypeTitle = 'New Product Order';
+  let txTypeTitle = 'New Product Order Received';
   if (isJob) {
-    txTypeTitle = 'New Job Application';
+    txTypeTitle = 'New Job Application Received';
   } else if (isFoodOrder) {
-    txTypeTitle = 'New Food Order';
+    txTypeTitle = 'New Food Order Received';
   } else if (isDailyNeedsOrder) {
-    txTypeTitle = 'New Daily Needs Order';
+    txTypeTitle = 'New Daily Needs Order Received';
   } else if (isStayBooking) {
-    txTypeTitle = 'New Stay Booking';
+    txTypeTitle = 'New Stay Booking Received';
   } else if (isTravelBooking) {
-    txTypeTitle = 'New Travel Booking';
+    txTypeTitle = 'New Travel Booking Received';
   } else if (isServiceBooking || isBooking) {
-    txTypeTitle = 'New Service Booking';
+    txTypeTitle = 'New Service Booking Received';
   } else {
-    txTypeTitle = 'New Product Order';
+    txTypeTitle = 'New Product Order Received';
   }
 
   const isOrder = !isJob && !isBooking;

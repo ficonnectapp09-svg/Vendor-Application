@@ -164,7 +164,7 @@ class VendorSocketService {
       return {
         id,
         category: 'Job',
-        title: 'New Job Application',
+        title: 'New Job Application Received',
         customerName: candidateName,
         itemName: jobTitle,
         dateTime: appDate,
@@ -175,7 +175,88 @@ class VendorSocketService {
       };
     }
 
-    // 2. Detect Service Booking
+    // 2. Detect Food Order (Must precede service detection so dish names in serviceName are never misclassified)
+    const rawItems = Array.isArray(raw.items) && raw.items.length > 0 ? raw.items : [];
+    const itemNames = rawItems.map((i: any) => i.name).filter(Boolean).join(', ');
+    const detailStr = String(raw.product_details || raw.serviceName || raw.itemName || itemNames || '').toLowerCase();
+
+    const isFood = ['food', 'foods', 'restaurant', 'dining', 'templecity'].includes(catStr) ||
+                   ['food', 'foods', 'restaurant', 'dining'].includes(typeStr) ||
+                   Boolean(raw.tableNumber || raw.table_number || raw.foodType) ||
+                   /food|restaurant|biryani|chicken|pizza|burger|meal|dish|dosa|idly|curry|roti|paneer|tea|coffee|naan|makhani/i.test(detailStr) ||
+                   (rawItems.some((it: any) => {
+                     const c = String(it.category || it.mainCategory || '').toLowerCase();
+                     const n = String(it.name || '').toLowerCase();
+                     return c.includes('food') || /dosa|idly|biryani|chicken|pizza|burger|meal|dish|curry|roti|paneer|tea|coffee|naan|makhani/i.test(n);
+                   }));
+
+    if (isFood) {
+      const customerName = raw.customer_name || raw.memberName || 'Customer';
+      const foodTitle = raw.tableNumber || raw.table_number ? `Dine-in (Table #${raw.tableNumber || raw.table_number})` : (itemNames || raw.product_details || raw.serviceName || 'Food Item');
+      const totalQty = rawItems.length > 0
+        ? rawItems.reduce((acc: number, curr: any) => acc + (Number(curr.quantity || curr.qty || 1)), 0)
+        : (raw.quantity || 1);
+      const orderDate = raw.createdAt
+        ? new Date(raw.createdAt).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })
+        : 'Just now';
+      const status = raw.status || 'Placed';
+      const rawFinalAmount = raw.finalAmount ?? raw.totalAmount ?? raw.amount ?? 0;
+      const cleanAmount = typeof rawFinalAmount === 'number'
+        ? rawFinalAmount
+        : (Number(String(rawFinalAmount).replace(/[^\d.-]/g, '')) || 0);
+
+      return {
+        id,
+        category: 'Order',
+        title: 'New Food Order Received',
+        customerName,
+        itemName: foodTitle,
+        quantity: totalQty,
+        amount: `₹${cleanAmount.toLocaleString('en-IN')}`,
+        dateTime: orderDate,
+        status,
+        segment: 'Orders',
+        raw,
+        receivedAt: Date.now(),
+      };
+    }
+
+    // 3. Detect Daily Needs Order
+    const isDailyNeeds = ['daily needs', 'daily need', 'grocery', 'pharmacy', 'snacks', 'supermarket'].includes(catStr) ||
+                         ['daily needs', 'daily need', 'grocery'].includes(typeStr);
+
+    if (isDailyNeeds) {
+      const customerName = raw.customer_name || raw.memberName || 'Customer';
+      const dnTitle = itemNames || raw.product_details || 'Daily Needs Item';
+      const totalQty = rawItems.length > 0
+        ? rawItems.reduce((acc: number, curr: any) => acc + (Number(curr.quantity || curr.qty || 1)), 0)
+        : (raw.quantity || 1);
+      const orderDate = raw.createdAt
+        ? new Date(raw.createdAt).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })
+        : 'Just now';
+      const status = raw.status || 'Placed';
+      const rawFinalAmount = raw.finalAmount ?? raw.totalAmount ?? raw.amount ?? 0;
+      const cleanAmount = typeof rawFinalAmount === 'number'
+        ? rawFinalAmount
+        : (Number(String(rawFinalAmount).replace(/[^\d.-]/g, '')) || 0);
+
+      return {
+        id,
+        category: 'Order',
+        title: 'New Daily Needs Order Received',
+        customerName,
+        itemName: dnTitle,
+        quantity: totalQty,
+        amount: `₹${cleanAmount.toLocaleString('en-IN')}`,
+        dateTime: orderDate,
+        status,
+        segment: 'Orders',
+        raw,
+        receivedAt: Date.now(),
+      };
+    }
+
+    // 4. Detect Service Booking
     const isServiceBooking = Boolean(
       catStr === 'services' ||
       catStr === 'stay' ||
@@ -239,9 +320,9 @@ class VendorSocketService {
         ['stay', 'hotel', 'resort'].includes(typeStr)
       );
 
-      let bookingTitle = 'New Service Booking';
-      if (isStay) bookingTitle = 'New Stay Booking';
-      else if (isTravel) bookingTitle = 'New Travel Booking';
+      let bookingTitle = 'New Service Booking Received';
+      if (isStay) bookingTitle = 'New Stay Booking Received';
+      else if (isTravel) bookingTitle = 'New Travel Booking Received';
 
       return {
         id,
@@ -260,7 +341,7 @@ class VendorSocketService {
       };
     }
 
-    // 4. Default: Product Order
+    // 5. Default: Product Order
     const customerName = raw.customer_name || raw.memberName || 'Customer';
     const items = Array.isArray(raw.items) && raw.items.length > 0 ? raw.items : [];
     const productName = items.length > 0
@@ -281,22 +362,10 @@ class VendorSocketService {
       ? rawFinalAmount
       : (Number(String(rawFinalAmount).replace(/[^\d.-]/g, '')) || 0);
 
-    const detailStr = String(raw.product_details || productName || '').toLowerCase();
-    const isFood = ['food', 'foods', 'restaurant', 'dining'].includes(catStr) ||
-                   ['food', 'foods', 'restaurant'].includes(typeStr) ||
-                   /food|restaurant|biryani|chicken|pizza|burger|meal|dish/i.test(detailStr);
-
-    const isDailyNeeds = ['daily needs', 'daily need', 'grocery', 'pharmacy', 'snacks'].includes(catStr) ||
-                         ['daily needs', 'daily need', 'grocery'].includes(typeStr);
-
-    let orderTitle = 'New Product Order';
-    if (isFood) orderTitle = 'New Food Order';
-    else if (isDailyNeeds) orderTitle = 'New Daily Needs Order';
-
     return {
       id,
       category: 'Order',
-      title: orderTitle,
+      title: 'New Product Order Received',
       customerName,
       itemName: productName,
       quantity: totalQty,
