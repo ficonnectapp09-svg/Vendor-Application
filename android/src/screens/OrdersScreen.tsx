@@ -848,6 +848,37 @@ export default function OrdersScreen({
       Alert.alert('Success', `Status updated to ${newStatus}`);
       setSelectedOrder(prev => (prev ? { ...prev, status: newStatus } : null));
       setSelectedBooking(prev => (prev ? { ...prev, status: newStatus as any } : null));
+
+      // Optimistically update lists and persistent session cache immediately
+      const idStr = String(orderId);
+      setOrdersRaw(prev => {
+        const updated = (Array.isArray(prev) ? prev : []).map(o =>
+          (String(o._id || o.id || o.order_number) === idStr)
+            ? { ...o, status: newStatus, updatedAt: new Date().toISOString() }
+            : o
+        );
+        sessionManager.saveVendorCache(vendorId, 'orders_raw', updated);
+        return updated;
+      });
+      setBookingsRaw(prev => {
+        const updated = (Array.isArray(prev) ? prev : []).map(b =>
+          (String(b._id || b.id || b.order_number) === idStr)
+            ? { ...b, status: newStatus, updatedAt: new Date().toISOString() }
+            : b
+        );
+        sessionManager.saveVendorCache(vendorId, 'bookings_raw', updated);
+        return updated;
+      });
+      setJobsRaw(prev => {
+        const updated = (Array.isArray(prev) ? prev : []).map(j =>
+          (String(j._id || j.id || j.order_number || j.applicationId) === idStr)
+            ? { ...j, status: newStatus, updatedAt: new Date().toISOString() }
+            : j
+        );
+        sessionManager.saveVendorCache(vendorId, 'jobs_raw', updated);
+        return updated;
+      });
+
       await loadSegmentData(activeSegment, true);
     } catch (err: any) {
       Alert.alert('Error', err.message || 'Failed to update status.');
@@ -3717,7 +3748,7 @@ export default function OrdersScreen({
                       )}
                       {selectedBooking.status !== 'Completed' && (
                         <TouchableOpacity
-                          onPress={() => handleStatusTransition(selectedBooking.id, 'Completed')}
+                          onPress={() => handleStatusTransition(selectedBooking.dbId || selectedBooking.id, 'Completed')}
                           style={[tw`w-full py-3 rounded-2xl items-center justify-center bg-emerald-600`]}>
                           <Text style={tw`text-white font-bold text-xs`}>✓ Mark Journey Completed</Text>
                         </TouchableOpacity>
@@ -3737,12 +3768,12 @@ export default function OrdersScreen({
                           return (
                             <View style={tw`flex-row gap-x-2`}>
                               <TouchableOpacity
-                                onPress={() => handleStatusTransition(selectedBooking.id, 'Confirmed')}
+                                onPress={() => handleStatusTransition(selectedBooking.dbId || selectedBooking.id, 'Confirmed')}
                                 style={[tw`flex-1 py-3.5 rounded-2xl items-center justify-center bg-green-600 shadow-sm`]}>
                                 <Text style={tw`text-white font-bold text-xs`}>✓ Confirm Booking</Text>
                               </TouchableOpacity>
                               <TouchableOpacity
-                                onPress={() => handleStatusTransition(selectedBooking.id, 'Cancelled')}
+                                onPress={() => handleStatusTransition(selectedBooking.dbId || selectedBooking.id, 'Cancelled')}
                                 style={[tw`flex-1 py-3.5 rounded-2xl items-center justify-center bg-red-600 shadow-sm`]}>
                                 <Text style={tw`text-white font-bold text-xs`}>✕ Cancel</Text>
                               </TouchableOpacity>
@@ -3755,12 +3786,12 @@ export default function OrdersScreen({
                             return (
                               <View style={tw`flex-row gap-x-2`}>
                                 <TouchableOpacity
-                                  onPress={() => handleStatusTransition(selectedBooking.id, 'Checked In')}
+                                  onPress={() => handleStatusTransition(selectedBooking.dbId || selectedBooking.id, 'Checked In')}
                                   style={[tw`flex-1 py-3.5 rounded-2xl items-center justify-center bg-emerald-600 shadow-sm`]}>
                                   <Text style={tw`text-white font-bold text-xs`}>🏨 Mark Guest Checked In</Text>
                                 </TouchableOpacity>
                                 <TouchableOpacity
-                                  onPress={() => handleStatusTransition(selectedBooking.id, 'Cancelled')}
+                                  onPress={() => handleStatusTransition(selectedBooking.dbId || selectedBooking.id, 'Cancelled')}
                                   style={[tw`px-4 py-3.5 rounded-2xl items-center justify-center bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-800`]}>
                                   <Text style={tw`text-red-600 dark:text-red-400 font-bold text-xs`}>Cancel</Text>
                                 </TouchableOpacity>
@@ -3770,12 +3801,12 @@ export default function OrdersScreen({
                           return (
                             <View style={tw`flex-row gap-x-2`}>
                               <TouchableOpacity
-                                onPress={() => handleStatusTransition(selectedBooking.id, 'Completed')}
+                                onPress={() => handleStatusTransition(selectedBooking.dbId || selectedBooking.id, 'Completed')}
                                 style={[tw`flex-1 py-3.5 rounded-2xl items-center justify-center bg-blue-600 shadow-sm`]}>
                                 <Text style={tw`text-white font-bold text-xs`}>✓ Mark Completed</Text>
                               </TouchableOpacity>
                               <TouchableOpacity
-                                onPress={() => handleStatusTransition(selectedBooking.id, 'Cancelled')}
+                                onPress={() => handleStatusTransition(selectedBooking.dbId || selectedBooking.id, 'Cancelled')}
                                 style={[tw`px-4 py-3.5 rounded-2xl items-center justify-center bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-800`]}>
                                 <Text style={tw`text-red-600 dark:text-red-400 font-bold text-xs`}>Cancel</Text>
                               </TouchableOpacity>
@@ -3786,7 +3817,7 @@ export default function OrdersScreen({
                         if (isCheckedIn) {
                           return (
                             <TouchableOpacity
-                              onPress={() => handleStatusTransition(selectedBooking.id, 'Completed')}
+                              onPress={() => handleStatusTransition(selectedBooking.dbId || selectedBooking.id, 'Completed')}
                               style={[tw`w-full py-3.5 rounded-2xl items-center justify-center bg-blue-600 shadow-sm`]}>
                               <Text style={tw`text-white font-bold text-xs`}>✓ Mark Checked Out & Completed</Text>
                             </TouchableOpacity>
@@ -3796,7 +3827,7 @@ export default function OrdersScreen({
                         if (!isCompleted && !isCancelled) {
                           return (
                             <TouchableOpacity
-                              onPress={() => handleStatusTransition(selectedBooking.id, 'Completed')}
+                              onPress={() => handleStatusTransition(selectedBooking.dbId || selectedBooking.id, 'Completed')}
                               style={[tw`w-full py-3.5 rounded-2xl items-center justify-center bg-blue-600 shadow-sm`]}>
                               <Text style={tw`text-white font-bold text-xs`}>✓ Mark Completed</Text>
                             </TouchableOpacity>

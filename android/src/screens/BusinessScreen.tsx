@@ -740,16 +740,22 @@ export default function BusinessScreen({
       // 1. Scoped to the active business outlet if one is selected
       if (activeBizId) {
         const itemBizId = (i.businessId || i.vendorId || '').toString();
-        if (itemBizId) {
-          if (itemBizId !== String(activeBizId)) return false;
-        } else {
-          // Fallback if item has no businessId/vendorId: match category
+        const parentVendorId = (currentUser?._id || currentUser?.id || currentUser?.parentUserId || '').toString();
+        const isParentLevel = !itemBizId || itemBizId === parentVendorId;
+
+        if (itemBizId === String(activeBizId)) {
+          // Exact business outlet match
+        } else if (isParentLevel) {
+          // Vendor-level item: match category to this active business outlet
           const iCat = normalizeCategory(i.category || (i as any).mainCategory || '');
           if (activeCategory === 'Jobs') {
             if (!isJobItem(i)) return false;
           } else {
             if (iCat !== activeCategory || isJobItem(i)) return false;
           }
+        } else {
+          // Belongs to a different specific business outlet
+          return false;
         }
       } else {
         // Fallback if no specific business selected: match active category
@@ -1199,9 +1205,22 @@ export default function BusinessScreen({
           ? (newItemOriginalPrice.startsWith('₹') ? newItemOriginalPrice : `₹${newItemOriginalPrice}`)
           : undefined;
 
-        let imageToSave = uploadedImageUrl || chosenImage;
-        if (imageToSave && (imageToSave.startsWith('file://') || imageToSave.startsWith('content://'))) {
-          imageToSave = uploadedImageUrl || '';
+        let imageToSave = uploadedImageUrl || '';
+        if (!imageToSave && chosenImage && !chosenImage.startsWith('file://') && !chosenImage.startsWith('content://')) {
+          imageToSave = chosenImage;
+        }
+
+        // If user picked a local image and upload is still pending or needs direct upload:
+        if (!imageToSave && chosenImage && !isJob) {
+          try {
+            const uploaded = await uploadImageToServer(chosenImage);
+            if (uploaded && !uploaded.startsWith('file://') && !uploaded.startsWith('content://')) {
+              imageToSave = uploaded;
+              setUploadedImageUrl(uploaded);
+            }
+          } catch (uErr) {
+            console.warn('[handleAddItem] Image upload retry error:', uErr);
+          }
         }
 
         const currentEditingItem = editingItem || items.find(i => i.id === editingItemId);
@@ -1210,7 +1229,7 @@ export default function BusinessScreen({
         }
 
         // Issue 16: Product image is required for Products category
-        if (newItemCategory === 'Products' && !imageToSave && !chosenImage && !uploadedImageUrl) {
+        if (newItemCategory === 'Products' && !imageToSave && !isJob) {
           Alert.alert('Product Image Required', 'Please upload or select an image for this product before saving.');
           setLoading(false);
           return;
@@ -1312,8 +1331,19 @@ export default function BusinessScreen({
         if (isEditing && editingItemId) {
           try {
             const updatedItem = await updateProduct(editingItemId, itemPayload);
-            const finalImage = isJob ? '' : (chosenImage || updatedItem.image);
-            setItems(prev => prev.map(i => i.id === editingItemId ? { ...i, ...itemPayload, ...updatedItem, isActive: itemPayload.isActive !== undefined ? itemPayload.isActive : (updatedItem.isActive ?? i.isActive), image: finalImage } : i));
+            const finalImage = isJob ? '' : (imageToSave || uploadedImageUrl || chosenImage || updatedItem.image);
+            setItems(prev => {
+              const updated = prev.map(i => i.id === editingItemId ? {
+                ...i,
+                ...itemPayload,
+                ...updatedItem,
+                isActive: itemPayload.isActive !== undefined ? itemPayload.isActive : (updatedItem.isActive ?? i.isActive),
+                image: finalImage
+              } : i);
+              const vendorId = currentUser?._id || currentUser?.id || 'default';
+              sessionManager.saveVendorCache(vendorId, 'catalog_items', updated);
+              return updated;
+            });
             Alert.alert('Success', isJob ? 'Job updated successfully!' : 'Item updated successfully!');
           } catch (apiErr: any) {
             console.error('Backend updateProduct error:', apiErr);
@@ -1325,8 +1355,20 @@ export default function BusinessScreen({
         } else {
           try {
             const savedItem = await createProduct(itemPayload);
-            const finalImage = isJob ? '' : (chosenImage || savedItem.image);
-            setItems(prev => [...prev, { ...savedItem, image: finalImage, jobID: itemPayload.jobID || savedItem.jobID }]);
+            const finalImage = isJob ? '' : (imageToSave || uploadedImageUrl || chosenImage || savedItem.image);
+            const fullItem = {
+              ...savedItem,
+              image: finalImage,
+              businessId: activeBizId || savedItem.businessId,
+              vendorId: activeBizId || savedItem.vendorId || currentUser?._id,
+              jobID: itemPayload.jobID || savedItem.jobID
+            };
+            setItems(prev => {
+              const updated = [...prev, fullItem];
+              const vendorId = currentUser?._id || currentUser?.id || 'default';
+              sessionManager.saveVendorCache(vendorId, 'catalog_items', updated);
+              return updated;
+            });
             Alert.alert('Success', isJob ? 'Job created successfully!' : 'Item saved successfully!');
           } catch (apiErr: any) {
             console.error('Backend createProduct error:', apiErr);
@@ -1565,7 +1607,12 @@ export default function BusinessScreen({
               } catch (apiErr) {
                 console.warn('Backend deleteProduct error, removing locally:', apiErr);
               }
-              setItems(prev => prev.filter(i => i.id !== id));
+              setItems(prev => {
+                const updated = prev.filter(i => i.id !== id);
+                const vendorId = currentUser?._id || currentUser?.id || 'default';
+                sessionManager.saveVendorCache(vendorId, 'catalog_items', updated);
+                return updated;
+              });
               Alert.alert('Success', 'Item deleted from catalog successfully!');
             } catch (err: any) {
               Alert.alert('Error', err.message || 'Failed to delete item.');
