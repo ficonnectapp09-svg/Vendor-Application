@@ -22,8 +22,14 @@ class VendorSocketService {
   private orderStatusMap: Map<string, string> = new Map();
   private activeToken: string | null = null;
   private pollInterval: ReturnType<typeof setInterval> | null = null;
+  private isPolling: boolean = false;
+  private lastPollAt: number = 0;
   private isInitialSeeded: boolean = false;
   private readonly sessionStartTime: number = Date.now();
+
+  public isSocketConnected(): boolean {
+    return Boolean(this.isConnected || this.socket?.connected);
+  }
 
   constructor() {
     this.hydrateProcessedIds();
@@ -510,7 +516,19 @@ class VendorSocketService {
         .catch(() => {});
     }
 
+    this.lastPollAt = Date.now();
+    // Socket-aware & AppState-aware reconciliation poll:
+    // - Paused when app is backgrounded/inactive (FCM push handles background alerts)
+    // - 60s safety reconciliation when Socket.IO is connected; 15s fallback when disconnected
     this.pollInterval = setInterval(async () => {
+      if (AppState.currentState !== 'active') return;
+      if (this.isPolling) return;
+      const socketLive = this.isSocketConnected();
+      const requiredGapMs = socketLive ? 60000 : 15000;
+      if (Date.now() - this.lastPollAt < requiredGapMs) return;
+
+      this.isPolling = true;
+      this.lastPollAt = Date.now();
       try {
         const [ordRes, bkgRes, appRes] = await Promise.allSettled([
           fetchOrders(),
@@ -574,8 +592,10 @@ class VendorSocketService {
         }
       } catch (e) {
         // Silent error on background poll
+      } finally {
+        this.isPolling = false;
       }
-    }, 4500);
+    }, 15000);
   }
 
   /**

@@ -1,4 +1,4 @@
-import React, {useState, useEffect, useMemo} from 'react';
+import React, {useState, useEffect, useMemo, useRef} from 'react';
 import { fetchOrders, fetchBookings, fetchApplications, updateOrderStatus, getVendorUser, formatImageUrl, fetchOrderById, fetchProducts, fetchAllBusinessesProducts } from '../services/apiService';
 import { socketService } from '../services/socketService';
 import { sessionManager } from '../services/sessionManager';
@@ -18,6 +18,7 @@ import {
   ActivityIndicator,
   RefreshControl,
   BackHandler,
+  AppState,
 } from 'react-native';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import tw from 'twrnc';
@@ -522,6 +523,8 @@ export default function OrdersScreen({
 }: OrdersScreenProps) {
   const insets = useSafeAreaInsets();
   const [activeSegment, setActiveSegment] = useState<'Orders' | 'Bookings' | 'Jobs'>('Orders');
+  const activeSegmentRef = useRef<'Orders' | 'Bookings' | 'Jobs'>('Orders');
+  useEffect(() => { activeSegmentRef.current = activeSegment; }, [activeSegment]);
   const [visitedSegments, setVisitedSegments] = useState<Set<'Orders' | 'Bookings' | 'Jobs'>>(new Set(['Orders']));
   const [isAllocatingSeat, setIsAllocatingSeat] = useState(false);
 
@@ -826,9 +829,11 @@ export default function OrdersScreen({
       setJobsRaw(prev => (Array.isArray(prev) ? prev : []).map(updateMatch));
     });
 
-    // Background polling fallback every 30 seconds to guarantee freshness if socket is silent
+    // Fallback poll (30s) strictly when app is active and Socket.IO is disconnected
     const pollInterval = setInterval(() => {
-      loadSegmentData(activeSegment, true);
+      if (AppState.currentState !== 'active') return;
+      if (socketService.isSocketConnected()) return;
+      loadSegmentData(activeSegmentRef.current, true);
     }, 30000);
 
     return () => {
