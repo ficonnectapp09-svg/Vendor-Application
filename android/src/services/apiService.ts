@@ -1,6 +1,6 @@
 import { Platform } from 'react-native';
-import { API_URL_ANDROID, API_URL_IOS, CLOUDINARY_CLOUD_NAME, CLOUDINARY_UPLOAD_PRESET, CLOUDINARY_BASE_URL } from './env';
-export { CLOUDINARY_CLOUD_NAME, CLOUDINARY_UPLOAD_PRESET, CLOUDINARY_BASE_URL } from './env';
+import { BACKEND_URL, API_URL, API_URL_ANDROID, API_URL_IOS, SOCKET_URL_ANDROID, CLOUDINARY_CLOUD_NAME, CLOUDINARY_UPLOAD_PRESET, CLOUDINARY_BASE_URL } from './env';
+export { BACKEND_URL, API_URL, SOCKET_URL_ANDROID, CLOUDINARY_CLOUD_NAME, CLOUDINARY_UPLOAD_PRESET, CLOUDINARY_BASE_URL } from './env';
 import { BusinessItem, CategoryKey } from '../../../App';
 import { sessionManager } from './sessionManager';
 
@@ -199,9 +199,8 @@ export const getCandidateBaseUrls = (): string[] => {
   }
 
   // 1. Authoritative production backend URL (always primary)
-  const primaryUrl = BASE_URL || 'https://connect-vendor-p1ij.onrender.com/api';
+  const primaryUrl = BASE_URL || API_URL || `${BACKEND_URL}/api`;
   list.push(primaryUrl);
-  list.push('https://connect-vendor-p1ij.onrender.com/api');
 
   // 2. Development & local fallback URLs ONLY in development mode (__DEV__)
   const isDev = typeof __DEV__ !== 'undefined' ? __DEV__ : false;
@@ -222,7 +221,7 @@ export const getWorkingSocketUrl = (): string => {
   if (cachedWorkingBaseUrl) {
     const url = cachedWorkingBaseUrl.replace(/\/api\/?$/, '');
     if (url.includes('vendor.ficapp.in')) {
-      return 'https://connect-vendor-p1ij.onrender.com';
+      return BACKEND_URL;
     }
     return url;
   }
@@ -230,7 +229,7 @@ export const getWorkingSocketUrl = (): string => {
   if (isDev) {
     return Platform.OS === 'android' ? 'http://10.0.2.2:8002' : 'http://localhost:8002';
   }
-  return 'https://connect-vendor-p1ij.onrender.com';
+  return SOCKET_URL_ANDROID || BACKEND_URL;
 };
 
 // In-flight request deduplication and client response cache
@@ -563,9 +562,9 @@ export const formatImageUrl = (url: string | undefined | null): string => {
     return cUrl;
   }
 
-  let backend = (BASE_URL || 'https://connect-vendor-p1ij.onrender.com/api').replace(/\/api\/?$/, '');
+  let backend = (BASE_URL || API_URL || BACKEND_URL).replace(/\/api\/?$/, '');
   if (!backend || !backend.startsWith('http')) {
-    backend = 'https://connect-vendor-p1ij.onrender.com';
+    backend = BACKEND_URL;
   }
 
   // If already absolute HTTP/HTTPS URL
@@ -1434,7 +1433,7 @@ export const registerDeviceToken = async (fcmToken?: string): Promise<boolean> =
     const socketBase = getWorkingSocketUrl();
     const token = getGlobalToken();
     const targetUrls = [
-      'https://connect-vendor-p1ij.onrender.com/api/auth/notifications/register-token',
+      `${BACKEND_URL}/api/auth/notifications/register-token`,
       `${socketBase}/api/auth/notifications/register-token`,
     ];
 

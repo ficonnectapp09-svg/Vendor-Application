@@ -1,11 +1,11 @@
 // Authoritative Environment Configuration for Vendor Mobile Application
-// Synchronized with Vendor Website reference: https://connect-vendor-p1ij.onrender.com
-export const BACKEND_URL = 'https://connect-vendor-p1ij.onrender.com';
-export const API_URL = 'https://connect-vendor-p1ij.onrender.com/api';
-export const API_URL_ANDROID = 'https://connect-vendor-p1ij.onrender.com/api';
-export const API_URL_IOS = 'https://connect-vendor-p1ij.onrender.com/api';
-export const SOCKET_URL_ANDROID = 'https://connect-vendor-p1ij.onrender.com';
-export const SOCKET_URL_IOS = 'https://connect-vendor-p1ij.onrender.com';
+// Sourced from environment configuration
+export const BACKEND_URL = 'https://vendor-website-9fjw.onrender.com';
+export const API_URL = `${BACKEND_URL}/api`;
+export const API_URL_ANDROID = `${BACKEND_URL}/api`;
+export const API_URL_IOS = `${BACKEND_URL}/api`;
+export const SOCKET_URL_ANDROID = BACKEND_URL;
+export const SOCKET_URL_IOS = BACKEND_URL;
 
 // Cloudinary Storage Configuration (Uploads handled securely by authenticated backend)
 export const CLOUDINARY_CLOUD_NAME = 'r6vovvet';

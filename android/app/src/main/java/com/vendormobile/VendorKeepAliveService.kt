@@ -221,7 +221,7 @@ class VendorKeepAliveService : Service() {
                     val prefs = getSharedPreferences(OrderAlertModule.PREFS_NAME, Context.MODE_PRIVATE)
                     val vendorId = prefs.getString(OrderAlertModule.KEY_VENDOR_ID, "") ?: ""
                     val authToken = prefs.getString(OrderAlertModule.KEY_AUTH_TOKEN, "") ?: ""
-                    val apiUrl = prefs.getString(OrderAlertModule.KEY_API_URL, "https://connect-vendor-p1ij.onrender.com/api") ?: "https://connect-vendor-p1ij.onrender.com/api"
+                    val apiUrl = prefs.getString(OrderAlertModule.KEY_API_URL, "https://vendor-website-9fjw.onrender.com/api") ?: "https://vendor-website-9fjw.onrender.com/api"
 
                     if (vendorId.isNotBlank() && authToken.isNotBlank()) {
                         pollCycleCount++
