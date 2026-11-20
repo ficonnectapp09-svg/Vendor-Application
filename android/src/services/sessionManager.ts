@@ -108,7 +108,7 @@ class SessionManager {
    */
   async validateSession(token: string): Promise<SessionValidationResult> {
     const baseUrl = Platform.OS === 'android' ? API_URL_ANDROID : API_URL_IOS;
-    const url = `${baseUrl || 'https://vendor-website-9fjw.onrender.com/api'}/vendor/profile`;
+    const url = `${baseUrl || 'https://customer-website-2x11.onrender.com/api'}/vendor/profile`;
 
     const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
     const timeoutId = controller ? setTimeout(() => controller.abort(), 12000) : null;

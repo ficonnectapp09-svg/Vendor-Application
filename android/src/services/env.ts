@@ -1,6 +1,6 @@
 // Authoritative Environment Configuration for Vendor Mobile Application
 // Sourced from environment configuration
-export const BACKEND_URL = 'https://vendor-website-9fjw.onrender.com';
+export const BACKEND_URL = 'https://customer-website-2x11.onrender.com';
 export const API_URL = `${BACKEND_URL}/api`;
 export const API_URL_ANDROID = `${BACKEND_URL}/api`;
 export const API_URL_IOS = `${BACKEND_URL}/api`;

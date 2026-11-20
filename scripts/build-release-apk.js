@@ -164,6 +164,8 @@ async function buildRelease() {
 
   fs.copyFileSync(generatedApkPath, versionedApkPath);
   fs.copyFileSync(generatedApkPath, latestApkPath);
+  const rootReleaseApk = path.join(ROOT_DIR, 'Vendor-Mobile-Release.apk');
+  fs.copyFileSync(generatedApkPath, rootReleaseApk);
 
   const stats = fs.statSync(versionedApkPath);
   const fileSizeMb = (stats.size / (1024 * 1024)).toFixed(2);
